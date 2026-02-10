@@ -1,10 +1,3 @@
-To ensure your **HyperLogistics** project meets the high standards of a graduate-level capstone (and NeurIPS reproducibility criteria), I have drafted a comprehensive **Reproducibility Guide**.
-
-This document is designed to go into your `reproducibility/` folder. It provides step-by-step instructions for your teammates (Daniel and Joel) and your professor to replicate your **Snowflake-native** environment from scratch.
-
-### 📄 File: `reproducibility/README.md`
-
-```markdown
 # 🔄 HyperLogistics: Reproducibility Guide
 
 **Version:** 1.0  
