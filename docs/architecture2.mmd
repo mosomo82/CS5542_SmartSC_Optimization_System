@@ -1,0 +1,54 @@
+graph TD
+    %% Subgraphs and Nodes
+    subgraph "Data Perception (Ingestion Layer)"
+        A1[Weather APIs: OpenWeather, NOAA]
+        A2[Accident Data: US DOT, Kaggle]
+        A3[Traffic Data: Google Maps, Sensors]
+        A4[DataCo Supply Chain]
+        B(Structured Data Store: Snowflake)
+        A1 -->|External Tables| B
+        A2 -->|Snowpipe| B
+        A3 -->|Snowpipe| B
+        A4 -->|Batch Ingest| B
+    end
+
+    subgraph "Backend: RAG + Data"
+        B -->|Vector Embeddings| C{RAG Pipeline}
+        C --> D[Weather/Logistics Metrics Extraction]
+    end
+
+    subgraph "Intelligence & Middleware (Forecasting)"
+        D -->|Historical Data| FS{Traffic Condition Forecasting: DeepAR/SRSNet}
+        FS --> G[Weather Event Predictor]
+        G --> H[Route Disruption Score Calculator]
+    end
+
+    subgraph "Frontend: User Interface"
+        UI_In[User Input: Origin to Destination] 
+        LLM_Proc[LLM Query Processor: Natural Language Understanding]
+        Ext_LLM[External Services: LLM Service GPT/Gemini/Cortex]
+        G_Route[Google Routes API: Generate Route Options]
+        RW_Engine[Route Weighting Engine: Apply Forecast Weights]
+        Dash[Interactive Dashboard: Best/Worst Routes & Visualization]
+        UI_In --> LLM_Proc
+        LLM_Proc --> Ext_LLM
+        Ext_LLM --> G_Route
+        H --> RW_Engine
+        G_Route --> RW_Engine
+        RW_Engine --> Dash
+    end
+
+    %% Real-time Updates Loop
+    D -.->|Real-time Updates| RW_Engine
+
+    %% Assign classes to nodes
+    class A1,A2,A3,A4,B data;
+    class C,D backend;
+    class FS,G,H forecast;
+    class UI_In,LLM_Proc,Ext_LLM,G_Route,RW_Engine,Dash frontend;
+
+    %% Assign class styles
+    classDef data fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
+    classDef backend fill:#fff3e0,stroke:#ef6c00,stroke-width:2px;
+    classDef forecast fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+    classDef frontend fill:#f3e5f5,stroke:#8e24aa,stroke-width:2px;
