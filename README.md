@@ -36,7 +36,7 @@ The **HyperLogistics** engine utilizes a Snowflake-native ecosystem to bridge th
 * **Dispatcher Dashboard:** A **Streamlit in Snowflake** application featuring interactive risk heatmaps and natural language "Ask the Agent" queries.
 * **Decision Support:** Provides side-by-side route comparisons with explainable justifications to eliminate the "lack of trust" bottleneck.
 
-![Architecture Diagram](./doc/hyperlogisticarchitecture)
+![Architecture Diagram](./doc/architecture2.png)
 
 ## 🛠️ Methods & Technologies
 
