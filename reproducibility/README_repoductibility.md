@@ -113,6 +113,21 @@ python src/ingestion/ingest_bridges.py
 
 
 
+### 2.4 DataCo Supply Chain (Ground Truth)
+This dataset trains our SRSNet model to predict "Delay Propensity."
+
+1.  **Download:** [DataCo Smart Supply Chain](https://www.kaggle.com/datasets/shashwatwork/dataco-smart-supply-chain-for-big-data-analysis) from Kaggle.
+2.  **Upload:**
+    * Rename the file to `dataco_supply_chain.csv`.
+    * Upload it to the Snowflake internal stage `@DATACO_STAGE`.
+3.  **Run Ingestion Script:**
+    ```bash
+    # Loads data into BRONZE.RAW_LOGISTICS and performs initial cleaning
+    python src/ingestion/ingest_dataco.py
+    ```
+
+
+    
 ---
 
 ## 🧠 Step 3: Intelligence Layer Setup
