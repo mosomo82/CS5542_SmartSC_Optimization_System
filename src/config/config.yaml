@@ -14,6 +14,10 @@ snowflake:
   warehouse: ${SNOWFLAKE_WAREHOUSE}
   database: ${SNOWFLAKE_DATABASE}
   schema: ${SNOWFLAKE_SCHEMA}
+aws:
+  region: ${AWS_REGION}
+  s3_bucket: ${S3_BUCKET}
+  role_arn: ${SNOWFLAKE_ROLE_ARN}
 datasets:
   dataco_path: data/DataCoSupplyChainDataset.csv
   accidents_path: data/US_Accidents_March23.csv

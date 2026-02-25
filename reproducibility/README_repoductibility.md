@@ -63,6 +63,95 @@ SNOWFLAKE_SCHEMA="BRONZE"
 
 ---
 
+## ☁️ Step 1.5: AWS S3 Setup (For Automated Loading)
+
+If you have an S3 bucket and want **fully automated data loading**, follow these steps:
+
+### 1.5.1 Configure AWS IAM Role for Snowflake
+
+1. **Create IAM Role:**
+   - Go to AWS IAM Console
+   - Create new role with "Another AWS account" as trusted entity
+   - Enter your Snowflake account ID (from your Snowflake account URL)
+   - Attach `AmazonS3ReadOnlyAccess` policy
+
+2. **Get Role ARN:**
+   - Copy the ARN: `arn:aws:iam::your-account-id:role/your-snowflake-role-arn`
+
+### 1.5.2 Configure S3 Bucket
+
+1. **Create Bucket Structure:**
+   ```
+   your-s3-bucket/
+   ├── logistics/     # For DataCo dataset
+   ├── accidents/     # For US Accidents
+   └── bridges/       # For Bridge Inventory
+   ```
+
+2. **Apply Bucket Policy:**
+   ```bash
+   python src/ingestion/setup_s3_automation.py
+   ```
+   This generates `s3_bucket_policy.json` - apply it to your S3 bucket.
+
+### 1.5.3 Setup Snowflake Integration
+
+1. **Run SQL Setup:**
+   ```sql
+   -- Execute src/sql/02_setup_s3_automation.sql in Snowflake
+   -- Replace placeholders with your bucket name and role ARN
+   ```
+
+2. **Configure S3 Event Notifications (Optional for Full Automation):**
+   - Create SQS queues for each dataset
+   - Configure S3 to send events to SQS
+   - Snowpipe will auto-poll the queues
+
+### 1.5.4 Upload Data to S3
+
+```bash
+# Download datasets to local data/ folder first
+python src/ingestion/setup_s3_automation.py  # Generates upload script
+python upload_to_s3.py  # Uploads all datasets
+```
+
+**Benefits:** Once set up, new data files uploaded to S3 automatically trigger ingestion into Snowflake!
+
+---
+
+## ❄️ Step 1.6: Snowflake Database Setup
+
+### 1.6.1 Create Database and Tables
+
+Before ingesting data, set up your Snowflake database structure. Run these SQL scripts **in order** in Snowflake Worksheets:
+
+1. **Create Database & Schemas:**
+   ```sql
+   -- Copy and paste entire contents of: src/sql/00_create_database.sql
+   -- This creates HYPERLOGISTICS_DB, BRONZE, SILVER, GOLD schemas and all tables
+   ```
+
+2. **Optional - Setup NOAA External Table:**
+   ```sql
+   -- Copy and paste entire contents of: src/sql/01_setup_noaa.sql
+   -- This connects to public NOAA S3 bucket for weather data
+   ```
+
+3. **Setup S3 Automation:**
+   ```sql
+   -- BEFORE RUNNING:
+   -- 1. Open: src/sql/02_setup_s3_automation.sql
+   -- 2. Replace:
+   --    - your-hyperlogistics-bucket  →  Your actual S3 bucket
+   --    - YOUR_ACCOUNT_ID             →  Your AWS Account ID (e.g., 123456789012)
+   --    - SnowflakeS3Role             →  Your IAM role name
+   -- 3. Then copy and paste into Snowflake Worksheet
+   ```
+
+**Troubleshooting:** If you get "HYPERLOGISTICS_DB does not exist", see [docs/fix_db_not_exist.md](../docs/fix_db_not_exist.md)
+
+---
+
 ## 💾 Step 2: Data Ingestion (The "Perception" Layer)
 
 Because the **US Accidents** dataset (3GB+) and **NOAA Weather** (TB+) are too large for GitHub, follow these specific ingestion strategies.
