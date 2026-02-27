@@ -1,0 +1,99 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Phase 2 Objectives}{4}{section.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}Data Pipeline Architecture}{4}{section.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Medallion Schema Design}{4}{subsection.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Pipeline Orchestration}{4}{subsection.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}Bronze Layer --- Ingestion Implementation}{5}{section.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Column Normalization}{5}{subsection.3.1}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {1}Column normalization applied to all ingested CSVs}{5}{lstlisting.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Dataset Ingestion Summary}{6}{subsection.3.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Bronze Layer Ingestion Results}}{6}{table.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Notable Ingestion Challenges}{7}{subsection.3.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.1}US Accidents --- Schema Drift on Re-run}{7}{subsubsection.3.3.1}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {2}Atomic drop-and-append strategy for accidents ingestion}{7}{lstlisting.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.2}Bridge Inventory --- PyArrow Mixed-Type Serialization}{7}{subsubsection.3.3.2}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {3}Cast all object columns to str before Snowpark ingestion}{7}{lstlisting.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Silver Layer --- Preprocessing Implementation}{7}{section.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Accidents $\rightarrow $ \texttt  {SILVER.RISK\_HEATMAP\_VIEW}}{7}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Bridge Inventory $\rightarrow $ \texttt  {SILVER.BRIDGE\_INVENTORY\_GEO}}{7}{subsection.4.2}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {4}GEOGRAPHY conversion for spatial join support}{7}{lstlisting.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}DataCo $\rightarrow $ \texttt  {SILVER.CLEANED\_LOGISTICS}}{8}{subsection.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Logistics Operations $\rightarrow $ \texttt  {SILVER.LOGISTICS\_VECTORIZED}}{8}{subsection.4.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.5}NOAA GSOD $\rightarrow $ \texttt  {SILVER.WEATHER\_ALERTS}}{8}{subsection.4.5}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Rule-Based Weather Alert Thresholds}}{8}{table.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}Pipeline Validation Results}{8}{section.5}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Pipeline Verification Results --- All 8/8 Tables Pass}}{9}{table.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Key Challenges and Resolutions}{9}{section.6}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Engineering Challenges Encountered and Resolved in Phase 2}}{9}{table.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Conclusion}{10}{section.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {A}Dataset \& Knowledge Base Documentation}{11}{appendix.A}\protected@file@percent }
+\newlabel{app:datasets}{{A}{11}{Dataset \& Knowledge Base Documentation}{appendix.A}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.1}Dataset Names, Modalities, and Source Links}{11}{subsection.A.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Complete Dataset Inventory}}{11}{table.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.2}Domain Relevance to the Project}{11}{subsection.A.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.3}Multimodal Ingestion Details}{12}{subsection.A.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Ingestion Methods by Dataset}}{12}{table.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.4}Data Preprocessing and Sampling Strategy}{13}{subsection.A.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Preprocessing Scripts and Sampling Strategies}}{13}{table.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {B}Retrieval \& Processing Pipeline}{14}{appendix.B}\protected@file@percent }
+\newlabel{app:retrieval}{{B}{14}{Retrieval \& Processing Pipeline}{appendix.B}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.1}Chunking Strategy: Semantic Record-Level}{14}{subsection.B.1}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {5}Semantic chunking: structured data to natural language}{14}{lstlisting.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.2}Indexing and Retrieval Configuration}{14}{subsection.B.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.3}Embedding Models Used}{15}{subsection.B.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Embedding and LLM Models}}{15}{table.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.4}Example Retrieval Outputs}{15}{subsection.B.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {B.4.1}Query 1: ``What are the recent safety concerns for driver DRV\_102?''}{15}{subsubsection.B.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {B.4.2}Query 2: ``Check if my route from Chicago to St.\ Louis is safe today.''}{15}{subsubsection.B.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.5}Preprocessing Scripts in GitHub}{15}{subsection.B.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {C}Application Integration}{16}{appendix.C}\protected@file@percent }
+\newlabel{app:application}{{C}{16}{Application Integration}{appendix.C}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.1}Streamlit Project Interface}{16}{subsection.C.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.2}Evidence Display and Grounded Answer Generation}{16}{subsection.C.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Evidence Sources for Grounded AI Responses}}{16}{table.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.3}Query Logging and Evaluation Outputs}{17}{subsection.C.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Query Log Schema}}{17}{table.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.4}Screenshots and Deployment}{17}{subsection.C.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {D}Snowflake Data Pipeline \& Schema}{18}{appendix.D}\protected@file@percent }
+\newlabel{app:snowflake}{{D}{18}{Snowflake Data Pipeline \& Schema}{appendix.D}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {D.1}Snowflake Schema (Tables, Stages, Views)}{18}{subsection.D.1}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {6}Medallion Architecture layout}{18}{lstlisting.6}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Bronze Layer Tables}}{18}{table.11}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Silver Layer Tables}}{18}{table.12}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {13}{\ignorespaces Gold Layer Tables}}{18}{table.13}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {14}{\ignorespaces Stages \& Pipes (Automated S3 Ingestion)}}{18}{table.14}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {D.2}Reproducible Ingestion Scripts (SQL / Snowpark / Python)}{19}{subsection.D.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {D.3}Example Queries Demonstrating Warehouse Connectivity}{19}{subsection.D.3}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {7}Query 1: Top accident hotspots along freight corridors}{19}{lstlisting.7}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {8}Query 2: Bridge clearance check for Illinois routes}{19}{lstlisting.8}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {9}Query 3: Delay analysis by shipping mode (Silver layer)}{19}{lstlisting.9}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {10}Query 4: AI-powered query via Snowflake Cortex}{19}{lstlisting.10}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {11}Query 5: Audit trail of AI interactions}{19}{lstlisting.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {D.4}How Snowflake Integrates with the Application}{20}{subsection.D.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {15}{\ignorespaces Application Integration Points}}{20}{table.15}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {E}Reproducibility Plan}{21}{appendix.E}\protected@file@percent }
+\newlabel{app:reproducibility}{{E}{21}{Reproducibility Plan}{appendix.E}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {E.1}Environment Configuration}{21}{subsection.E.1}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {12}Key dependencies from requirements.txt}{21}{lstlisting.12}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {13}Environment setup}{21}{lstlisting.13}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {E.2}Model Versions and Dataset Versioning}{21}{subsection.E.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {16}{\ignorespaces AI Model Versions (Snowflake-Managed --- No Local GPU Required)}}{21}{table.16}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {17}{\ignorespaces Dataset Versions}}{22}{table.17}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {E.3}Random Seeds and Configuration Files}{22}{subsection.E.3}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {14}Random seed configuration}{22}{lstlisting.14}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {18}{\ignorespaces Configuration Files}}{22}{table.18}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {E.4}Run Instructions}{22}{subsection.E.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {19}{\ignorespaces Expected Reproduction Checkpoints}}{23}{table.19}\protected@file@percent }
+\bibcite{srsnet}{1}
+\bibcite{remindrag}{2}
+\bibcite{cpp}{3}
+\bibcite{snowpark}{4}
+\bibcite{dataco}{5}
+\bibcite{accidents}{6}
+\bibcite{bridges}{7}
+\bibcite{noaa}{8}
+\bibcite{logistics}{9}
+\gdef \@abspage@last{24}

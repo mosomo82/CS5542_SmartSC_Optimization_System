@@ -1,25 +1,34 @@
 import snowflake.snowpark as snowpark
-from snowflake.snowpark.functions import col, datediff, avg, when
-import pandas as pd
+from snowflake.snowpark.functions import col, avg, cast
+from snowflake.snowpark.types import IntegerType
+from snowflake.snowpark import Window
 
-def preprocess_dataco(session: snowflake.snowpark.Session) -> None:
+def preprocess_dataco(session: snowpark.Session) -> None:
     """
     Preprocess the DataCo Smart Supply Chain dataset.
     Calculates delay propensity scores and prepares for SRSNet training.
+
+    Column names reflect the normalization applied in ingest_dataco.py:
+      "Days for shipping (real)"       → DAYS_FOR_SHIPPING_REAL
+      "Days for shipment (scheduled)" → DAYS_FOR_SHIPMENT_SCHEDULED
+      "Late_delivery_risk"             → LATE_DELIVERY_RISK  (0/1 integer)
+      "Shipping Mode"                  → SHIPPING_MODE
     """
     # Load raw data from Bronze layer
     raw_df = session.table("BRONZE.RAW_LOGISTICS")
 
-    # Feature engineering: Calculate delay propensity
+    # Feature engineering
+    # delay_days: how many extra days beyond scheduled (positive = late)
+    # LATE_DELIVERY_RISK is already 0/1 in the DataCo dataset
     processed_df = raw_df.withColumn(
-        "delay_days",
-        datediff("day", col("order_date"), col("shipping_date"))
+        "DELAY_DAYS",
+        col("DAYS_FOR_SHIPPING_REAL") - col("DAYS_FOR_SHIPMENT_SCHEDULED")
     ).withColumn(
-        "late_delivery_risk_score",
-        when(col("late_delivery_risk") == "Yes", 1).otherwise(0)
+        "LATE_DELIVERY_RISK_SCORE",
+        cast(col("LATE_DELIVERY_RISK"), IntegerType())
     ).withColumn(
-        "delay_propensity",
-        avg("delay_days").over("shipping_mode")  # Rolling average by shipping mode
+        "DELAY_PROPENSITY",
+        avg(col("DAYS_FOR_SHIPPING_REAL")).over(Window.partitionBy(col("SHIPPING_MODE")))
     )
 
     # Save to Silver layer
@@ -28,19 +37,10 @@ def preprocess_dataco(session: snowflake.snowpark.Session) -> None:
     print("DataCo preprocessing completed. Data saved to SILVER.CLEANED_LOGISTICS")
 
 if __name__ == "__main__":
-    # For local testing (requires Snowflake connection)
-    from dotenv import load_dotenv
-    import os
-    load_dotenv()
+    import sys, os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+    from src.utils.snowflake_conn import get_session, close_session
 
-    session = snowpark.Session.builder.configs({
-        "account": os.getenv("SNOWFLAKE_ACCOUNT"),
-        "user": os.getenv("SNOWFLAKE_USER"),
-        "password": os.getenv("SNOWFLAKE_PASSWORD"),
-        "role": os.getenv("SNOWFLAKE_ROLE"),
-        "warehouse": os.getenv("SNOWFLAKE_WAREHOUSE"),
-        "database": os.getenv("SNOWFLAKE_DATABASE"),
-        "schema": os.getenv("SNOWFLAKE_SCHEMA")
-    }).create()
-
+    session = get_session()
     preprocess_dataco(session)
+    close_session()

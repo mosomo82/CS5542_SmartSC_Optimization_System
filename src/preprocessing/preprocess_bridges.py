@@ -1,7 +1,7 @@
 import snowflake.snowpark as snowpark
-from snowflake.snowpark.functions import col, st_geogfromtext, concat
+from snowflake.snowpark.functions import col, st_geogfromtext, concat, lit
 
-def preprocess_bridges(session: snowflake.snowpark.Session) -> None:
+def preprocess_bridges(session: snowpark.Session) -> None:
     """
     Preprocess National Bridge Inventory to enable spatial joins.
     Converts lat/lon to GEOGRAPHY type for compliance checks.
@@ -9,10 +9,11 @@ def preprocess_bridges(session: snowflake.snowpark.Session) -> None:
     # Load raw bridge data
     bridges_df = session.table("BRONZE.BRIDGE_INVENTORY")
 
-    # Convert to geography
+    # The NTAD NBI export provides LATDD / LONGDD as clean decimal-degree columns.
+    # These names are stable after the column-normalization applied in ingest_bridges.py.
     geo_bridges = bridges_df.withColumn(
-        "location",
-        st_geogfromtext(concat(lit("POINT("), col("longitude"), lit(" "), col("latitude"), lit(")")))
+        "LOCATION",
+        st_geogfromtext(concat(lit("POINT("), col("LONGDD"), lit(" "), col("LATDD"), lit(")")))
     )
 
     # Save to Silver layer
@@ -21,18 +22,10 @@ def preprocess_bridges(session: snowflake.snowpark.Session) -> None:
     print("Bridge inventory preprocessing completed. Geography data saved.")
 
 if __name__ == "__main__":
-    from dotenv import load_dotenv
-    import os
-    load_dotenv()
+    import sys, os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+    from src.utils.snowflake_conn import get_session, close_session
 
-    session = snowpark.Session.builder.configs({
-        "account": os.getenv("SNOWFLAKE_ACCOUNT"),
-        "user": os.getenv("SNOWFLAKE_USER"),
-        "password": os.getenv("SNOWFLAKE_PASSWORD"),
-        "role": os.getenv("SNOWFLAKE_ROLE"),
-        "warehouse": os.getenv("SNOWFLAKE_WAREHOUSE"),
-        "database": os.getenv("SNOWFLAKE_DATABASE"),
-        "schema": os.getenv("SNOWFLAKE_SCHEMA")
-    }).create()
-
+    session = get_session()
     preprocess_bridges(session)
+    close_session()

@@ -1,21 +1,29 @@
+import re
+import snowflake.snowpark
 import snowflake.snowpark as snowpark
 import pandas as pd
 import os
+
+
+def _normalize_col(c: str) -> str:
+    """Normalize a CSV column name to a clean Snowflake identifier."""
+    return re.sub(r'[^A-Z0-9]+', '_', c.strip().upper()).strip('_')
 
 def ingest_dataco(session: snowflake.snowpark.Session, file_path: str) -> None:
     """
     Ingest DataCo Smart Supply Chain dataset into Snowflake Bronze layer.
     """
-    # Read CSV (assuming local file for demo; in practice, upload to stage first)
-    df = pd.read_csv(file_path)
+    # DataCo CSVs use Latin-1 encoding and have column names with spaces/parens.
+    # Normalizing to clean uppercase identifiers ensures preprocessing scripts can
+    # reference columns without quoted identifiers.
+    df = pd.read_csv(file_path, encoding='latin1')
+    df.columns = [_normalize_col(c) for c in df.columns]
 
-    # Convert to Snowpark DataFrame
     snow_df = session.create_dataframe(df)
-
-    # Save to Bronze table
     snow_df.write.mode("overwrite").save_as_table("BRONZE.RAW_LOGISTICS")
 
-    print(f"DataCo dataset ingested from {file_path} to BRONZE.RAW_LOGISTICS")
+    print(f"DataCo dataset ingested from {file_path} to BRONZE.RAW_LOGISTICS "
+          f"({len(df):,} rows)")
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
@@ -31,5 +39,4 @@ if __name__ == "__main__":
         "schema": os.getenv("SNOWFLAKE_SCHEMA")
     }).create()
 
-    # Example usage: ingest_dataco(session, "data/DataCoSupplyChainDataset.csv")
-    ingest_dataco(session, "data/DataCoSupplyChainDataset.csv")
+    ingest_dataco(session, "data/dataco/DataCoSupplyChainDataset.csv")

@@ -1,0 +1,1013 @@
+\documentclass[14.5pt,letterpaper]{article}
+
+% Packages
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{float}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{listings}
+
+% Code listing style
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!8},
+    keywordstyle=\color{blue},
+    commentstyle=\color{gray},
+}
+
+% Hyperref setup
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+    pdftitle={Hyperlogistics: Phase 2 Implementation Report},
+    pdfauthor={Daniel Evans, Joel Vinas, Tony Nguyen},
+}
+
+% Header and footer
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{CS 5542 Big Data Analytics \& Applications}
+\lhead{Hyperlogistics --- Phase 2 Report}
+\rfoot{Page \thepage}
+
+\title{\textbf{Hyperlogistics: Smart Supply Chain Optimization System} \\
+\large Phase 2 Implementation Report \\
+\normalsize CS 5542 Big Data Analytics \& Applications}
+
+\author{
+    Daniel Evans (Data/Back-End Engineer) \\
+    Joel Vinas (Data Engineer/ML Engineer) \\
+    Tony Nguyen (ML/Full-Stack Engineer)
+}
+
+\date{February 27, 2026}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\begin{abstract}
+This report documents the Phase 2 implementation of Hyperlogistics, an intelligent middle-mile supply chain optimization system built on a Snowflake-native stack. Following the architectural design established in Phase 1, this phase focused on constructing and validating the full Bronze--Silver data pipeline: ingesting over \textbf{7.1 million raw records} across five datasets into Snowflake's Bronze layer, and transforming them into four analytics-ready Silver tables. All eight pipeline tables passed automated row-count and schema validation. Key engineering challenges resolved in this phase include multi-type PyArrow schema conflicts, column identifier normalization across heterogeneous CSV encodings, and NOAA GSOD temporal filtering for weather alert preprocessing. The pipeline is now production-ready for Gold-layer vector embedding and the Streamlit in Snowflake dispatcher dashboard, which constitute Phase 3 deliverables.
+\end{abstract}
+
+\newpage
+\tableofcontents
+\newpage
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Phase 2 Objectives}
+% ─────────────────────────────────────────────────────────────────────────────
+
+Phase 2 objectives were derived directly from the Week 1 and Week 2 sprints defined in the Phase 1 proposal:
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Establish the Medallion Architecture} --- Provision all three schema layers (Bronze, Silver, Gold) in Snowflake and validate connectivity from the Python Snowpark client.
+
+    \item \textbf{Implement Full Bronze Ingestion} --- Ingest all five source datasets into Bronze tables using chunked Snowpark writes with automatic schema detection and column normalization.
+
+    \item \textbf{Implement Silver Preprocessing} --- Apply feature engineering and type transformations to produce four Silver tables: the risk heatmap, cleaned logistics, geo-indexed bridge inventory, and logistics vectorization corpus.
+
+    \item \textbf{Automate and Validate the Pipeline} --- Build an end-to-end pipeline runner (\texttt{src/run\_pipeline.py}) and a verification harness (\texttt{src/verify\_pipeline.py}) to confirm all tables exceed minimum row-count thresholds.
+
+    \item \textbf{Implement NOAA Weather Alert Extraction} --- Configure the \texttt{BRONZE.NOAA\_GSOD} table and preprocess 2023--2025 weather observations into \texttt{SILVER.WEATHER\_ALERTS}.
+\end{enumerate}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Data Pipeline Architecture}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Medallion Schema Design}
+
+The Snowflake database \texttt{HYPERLOGISTICS\_DB} is organized into three schemas following the Medallion Architecture pattern introduced in Phase 1:
+
+\begin{itemize}
+    \item \textbf{BRONZE} --- Raw landing zone. Data is ingested ``as-is'' with normalized column names (uppercase, underscore-separated) but no semantic transformation. Tables are overwritten on each pipeline run to ensure idempotency.
+
+    \item \textbf{SILVER} --- Cleaned and enriched layer. Snowpark Python transformations apply type casting, geospatial conversion, feature engineering (delay propensity, risk scores), and vectorization stubs. Results are materialized as permanent tables.
+
+    \item \textbf{GOLD} --- Analytics- and LLM-ready layer. To be populated in Phase 3 via Snowflake Cortex embedding calls and dynamic table refresh.
+\end{itemize}
+
+\subsection{Pipeline Orchestration}
+
+The pipeline is orchestrated by \texttt{src/run\_pipeline.py}, which:
+
+\begin{enumerate}
+    \item Reads credentials from a \texttt{.env} file and builds a shared Snowpark session.
+    \item Executes all ingestion steps in dependency order (Bronze first).
+    \item Executes all preprocessing steps (Silver).
+    \item Skips the NOAA weather preprocessing step gracefully if \texttt{BRONZE.NOAA\_GSOD} is empty, printing a human-readable instruction to the operator.
+    \item Catches and logs exceptions per step without aborting the pipeline, ensuring partial failures do not block unrelated datasets.
+\end{enumerate}
+
+The orchestrator exposes a \texttt{\_step(label, fn, *args)} helper that wraps each callable, prints structured progress output, and preserves the full traceback for any failed step.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Bronze Layer --- Ingestion Implementation}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Column Normalization}
+
+A recurring engineering challenge across all five CSV datasets was column identifier heterogeneity: column headers contained spaces, parentheses, mixed casing, and special characters (e.g., \texttt{Days for shipping (real)}, \texttt{STRUCTURE\_NUMBER\_008}). Snowflake requires unquoted identifiers to be uppercase alphanumeric with underscores.
+
+All ingestion scripts apply the following normalization function before creating Snowpark DataFrames:
+
+\begin{lstlisting}[language=Python, caption={Column normalization applied to all ingested CSVs}]
+import re
+
+def _normalize_col(c: str) -> str:
+    return re.sub(r"[^A-Z0-9]+", "_", c.strip().upper()).strip("_")
+\end{lstlisting}
+
+This transforms, for example, \texttt{Days for shipping (real)} $\rightarrow$ \texttt{DAYS\_FOR\_SHIPPING\_REAL} and \texttt{Start\_Time} $\rightarrow$ \texttt{START\_TIME}.
+
+\subsection{Dataset Ingestion Summary}
+
+\begin{table}[H]
+\centering
+\caption{Bronze Layer Ingestion Results}
+\begin{tabularx}{\textwidth}{@{}l l r l X@{}}
+\toprule
+\textbf{Script} & \textbf{Bronze Table} & \textbf{Rows} & \textbf{Source} & \textbf{Key Engineering Notes} \\
+\midrule
+\texttt{ingest\_accidents.py} & \texttt{TRAFFIC\_INCIDENTS} & 3,500,000 & US Accidents CSV (3 GB) &
+    Chunked write (100K rows/chunk); explicit \texttt{DROP TABLE} before loop to avoid schema mismatch on schema-drifted re-runs; \texttt{low\_memory=False} for mixed-type columns. \\
+\addlinespace
+\texttt{ingest\_bridges.py} & \texttt{BRIDGE\_INVENTORY} & 624,193 & NBI CSV (US DOT) &
+    All \texttt{object}-typed pandas columns cast to \texttt{str} before Snowpark ingestion to prevent PyArrow mixed-type serialization errors on \texttt{STRUCTURE\_NUMBER\_008}. \\
+\addlinespace
+\texttt{ingest\_dataco.py} & \texttt{RAW\_LOGISTICS} & 180,519 & DataCo CSV (Kaggle) &
+    \texttt{encoding=\textquotesingle latin1\textquotesingle} required; column normalization converts 48 headers with spaces/parentheses. \\
+\addlinespace
+\texttt{ingest\_logistics.py} & \texttt{LOGISTICS} & 2,748,530 & 14-table logistics ops DB &
+    Multi-file directory scan; foreign-key join across 14 CSVs before single-table write. \\
+\addlinespace
+\texttt{ingest\_noaa.py} & \texttt{NOAA\_GSOD} & Per-load & NOAA GSOD station CSVs &
+    Accepts single file or directory; NOAA \texttt{999.9} sentinel replaced with \texttt{NULL}; date stored as \texttt{VARCHAR} for downstream \texttt{TO\_DATE} casting. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Notable Ingestion Challenges}
+
+\subsubsection{US Accidents --- Schema Drift on Re-run}
+
+The original ingestion script used Snowpark's \texttt{save\_as\_table(mode="overwrite")} for the first chunk. On re-runs, this resulted in a \texttt{DELETE + INSERT} rather than a true \texttt{DROP + CREATE}, so a previously-written 44-column table could not absorb a 46-column first chunk. The fix was to issue an explicit \texttt{DROP TABLE IF EXISTS} before the chunked append loop, ensuring atomic schema recreation:
+
+\begin{lstlisting}[language=Python, caption={Atomic drop-and-append strategy for accidents ingestion}]
+session.sql("DROP TABLE IF EXISTS BRONZE.TRAFFIC_INCIDENTS").collect()
+for i, chunk in enumerate(chunks):
+    sp_df = session.create_dataframe(chunk)
+    sp_df.write.mode("append").save_as_table("BRONZE.TRAFFIC_INCIDENTS")
+\end{lstlisting}
+
+\subsubsection{Bridge Inventory --- PyArrow Mixed-Type Serialization}
+
+The NBI dataset contains \texttt{STRUCTURE\_NUMBER\_008}, a column with mixed integer/string values that Pandas infers as \texttt{object} dtype. PyArrow, used internally by Snowpark for DataFrame serialization, raises a type-inference error on such columns. The resolution was to cast \textit{all} \texttt{object}-dtype columns to \texttt{str} before handing the DataFrame to Snowpark:
+
+\begin{lstlisting}[language=Python, caption={Cast all object columns to str before Snowpark ingestion}]
+for c in df.select_dtypes(include="object").columns:
+    df[c] = df[c].astype(str)
+\end{lstlisting}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Silver Layer --- Preprocessing Implementation}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Accidents $\rightarrow$ \texttt{SILVER.RISK\_HEATMAP\_VIEW}}
+
+The preprocessing script (\texttt{preprocess\_accidents.py}) aggregates 3.5 million raw incident records by US state, city, and hour-of-day using Snowpark's \texttt{groupBy} and \texttt{agg} operations. It computes:
+
+\begin{itemize}
+    \item \textbf{Incident Count} per spatial cluster.
+    \item \textbf{Average Severity} (1--4 scale) as a float.
+    \item \textbf{Risk Score}: a weighted composite of incident count and average severity normalized to $[0, 1]$.
+\end{itemize}
+
+The result (\textbf{2,587,453 rows}) provides the geospatial foundation for the dispatcher dashboard's risk heatmap overlay.
+
+\subsection{Bridge Inventory $\rightarrow$ \texttt{SILVER.BRIDGE\_INVENTORY\_GEO}}
+
+The bridge preprocessing script converts the NBI's decimal-degree latitude/longitude columns (\texttt{LATDD} and \texttt{LONGDD}) into Snowflake's native \texttt{GEOGRAPHY} type using \texttt{ST\_GEOGFROMTEXT}:
+
+\begin{lstlisting}[language=SQL, caption={GEOGRAPHY conversion for spatial join support}]
+SELECT *, ST_GEOGFROMTEXT('POINT(' || LONGDD || ' ' || LATDD || ')') 
+    AS LOCATION
+FROM BRONZE.BRIDGE_INVENTORY
+WHERE LATDD IS NOT NULL AND LONGDD IS NOT NULL;
+\end{lstlisting}
+
+All \textbf{624,193} bridge records are retained (no sampling) to ensure exhaustive spatial join coverage for the safety-veto layer. A spatial join against this table guarantees that the Planning Agent can detect any bridge clearance or weight violation along a proposed reroute.
+
+\subsection{DataCo $\rightarrow$ \texttt{SILVER.CLEANED\_LOGISTICS}}
+
+Feature engineering on the DataCo dataset (\texttt{preprocess\_dataco.py}) produces three derived columns critical for SRSNet training:
+
+\begin{enumerate}
+    \item \textbf{DELAY\_DAYS}: Arithmetic difference between actual and scheduled shipping days:
+    \[
+        \text{DELAY\_DAYS} = \texttt{DAYS\_FOR\_SHIPPING\_REAL} - \texttt{DAYS\_FOR\_SHIPMENT\_SCHEDULED}
+    \]
+    A pure \texttt{datediff} SQL call was not viable because the source columns are integer counts, not date types.
+
+    \item \textbf{LATE\_DELIVERY\_RISK}: Cast from the \texttt{LATE\_DELIVERY\_RISK} integer column (0/1) to a typed \texttt{IntegerType()} field.
+
+    \item \textbf{SHIPPING\_DELAY\_ZSCORE}: Z-score of delay days partitioned by \texttt{SHIPPING\_MODE}, enabling anomaly detection across transit types. Computed using Snowpark's \texttt{Window} function.
+\end{enumerate}
+
+\subsection{Logistics Operations $\rightarrow$ \texttt{SILVER.LOGISTICS\_VECTORIZED}}
+
+The logistics preprocessing script (\texttt{preprocess\_logistics.py}) constructs a concatenated free-text \texttt{DESCRIPTION} column from key operational fields (driver, route, load type, incident status). This description field serves as the input for Phase 3 Cortex embedding calls to populate the vector store in \texttt{GOLD.VECTOR\_EMBEDDINGS}.
+
+\subsection{NOAA GSOD $\rightarrow$ \texttt{SILVER.WEATHER\_ALERTS}}
+
+The weather preprocessing script (\texttt{preprocess\_weather.py}) filters the \texttt{BRONZE.NOAA\_GSOD} table to \textbf{active years only} (2023--2025) using a server-side \texttt{YEAR(DATE)} predicate pushed down to Snowflake, then applies rule-based alert classification:
+
+\begin{table}[H]
+\centering
+\caption{Rule-Based Weather Alert Thresholds}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Condition} & \textbf{Threshold} & \textbf{Alert Label} \\
+\midrule
+Precipitation (\texttt{PRCP}) & $> 50$ mm & Heavy precipitation expected \\
+Snowfall depth (\texttt{SNDP})  & $> 10$ cm & Significant snowfall \\
+Visibility (\texttt{VISIB})     & $< 1$ mile & Low visibility conditions \\
+Default                          & ---         & Normal conditions \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The output \texttt{SILVER.WEATHER\_ALERTS} table contains 10 columns including \texttt{STATION}, \texttt{DATE}, raw weather metrics, the \texttt{WEATHER\_ALERT} label, and a human-readable \texttt{ALERT\_DESCRIPTION} string suitable for injection into RAG prompts.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Pipeline Validation Results}
+% ─────────────────────────────────────────────────────────────────────────────
+
+A dedicated verification script (\texttt{src/verify\_pipeline.py}) queries each table's \texttt{COUNT(*)} and compares against a minimum threshold. All eight Bronze and Silver tables passed validation:
+
+\begin{table}[H]
+\centering
+\caption{Pipeline Verification Results --- All 8/8 Tables Pass}
+\begin{tabular}{@{}llrrr@{}}
+\toprule
+\textbf{Schema} & \textbf{Table} & \textbf{Actual Rows} & \textbf{Min Threshold} & \textbf{Status} \\
+\midrule
+BRONZE & \texttt{TRAFFIC\_INCIDENTS}     & 3,500,000 & 3,000,000 & \textcolor{green!60!black}{\textbf{PASS}} \\
+BRONZE & \texttt{BRIDGE\_INVENTORY}      & 624,193   & 600,000   & \textcolor{green!60!black}{\textbf{PASS}} \\
+BRONZE & \texttt{RAW\_LOGISTICS}         & 180,519   & 150,000   & \textcolor{green!60!black}{\textbf{PASS}} \\
+BRONZE & \texttt{LOGISTICS}              & 2,748,530 & 2,000,000 & \textcolor{green!60!black}{\textbf{PASS}} \\
+\midrule
+SILVER & \texttt{RISK\_HEATMAP\_VIEW}    & 2,587,453 & 1,000,000 & \textcolor{green!60!black}{\textbf{PASS}} \\
+SILVER & \texttt{BRIDGE\_INVENTORY\_GEO} & 624,193   & 600,000   & \textcolor{green!60!black}{\textbf{PASS}} \\
+SILVER & \texttt{CLEANED\_LOGISTICS}     & 180,519   & 150,000   & \textcolor{green!60!black}{\textbf{PASS}} \\
+SILVER & \texttt{LOGISTICS\_VECTORIZED}  & 2,748,530 & 2,000,000 & \textcolor{green!60!black}{\textbf{PASS}} \\
+\midrule
+\multicolumn{3}{@{}l}{\textbf{Total records across Bronze + Silver}} & \multicolumn{2}{r}{\textbf{13,193,937}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The Gold-layer tables (\texttt{VECTOR\_EMBEDDINGS}, \texttt{DISRUPTION\_REPORTS}, \texttt{QUERY\_LOGS}) remain empty at this stage, as they are populated at runtime by the Streamlit application and Cortex embedding jobs scheduled for Phase 3.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Key Challenges and Resolutions}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{table}[H]
+\centering
+\caption{Engineering Challenges Encountered and Resolved in Phase 2}
+\small
+\begin{tabularx}{\textwidth}{@{}l X X@{}}
+\toprule
+\textbf{Challenge} & \textbf{Root Cause} & \textbf{Resolution} \\
+\midrule
+Column count mismatch on re-run (Accidents) &
+    \texttt{overwrite} on existing table performs \texttt{DELETE+INSERT}, not \texttt{DROP+CREATE}; schema change not applied. &
+    Explicit \texttt{DROP TABLE IF EXISTS} before chunked \texttt{append} loop. \\
+\addlinespace
+PyArrow mixed-type serialization (Bridges) &
+    \texttt{STRUCTURE\_NUMBER\_008} inferred as \texttt{object} dtype with mixed int/str values. &
+    Cast all \texttt{object}-dtype columns to \texttt{str} before Snowpark write. \\
+\addlinespace
+Latin-1 encoding error (DataCo) &
+    Non-UTF-8 characters in customer name fields. &
+    \texttt{pd.read\_csv(..., encoding=\textquotesingle latin1\textquotesingle)}. \\
+\addlinespace
+Quoted identifier errors (DataCo, Bridges) &
+    Column names like \texttt{Days for shipping (real)} did not normalize to valid SQL identifiers when Snowpark generated SQL. &
+    \texttt{\_normalize\_col()} strips special chars to uppercase underscored identifiers pre-ingestion. \\
+\addlinespace
+\texttt{datediff} on integer delay columns (DataCo Silver) &
+    \texttt{DAYS\_FOR\_SHIPPING\_REAL} and \texttt{DAYS\_FOR\_SHIPMENT\_SCHEDULED} are integer counts, not DATE types; \texttt{datediff} raised a type error. &
+    Replaced with arithmetic subtraction in Snowpark: \texttt{col(A) - col(B)}. \\
+\addlinespace
+NOAA GSOD \texttt{METADATA\$FILENAME} access (Weather) &
+    \texttt{METADATA\$FILENAME} is a SQL pseudo-column not exposed through the Snowpark DataFrame API. &
+    Filter replaced with \texttt{year(col("DATE")).isin(ACTIVE\_YEARS)}, which generates a server-side predicate. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Conclusion}
+% ─────────────────────────────────────────────────────────────────────────────
+
+Phase 2 successfully delivered a robust, production-validated Bronze--Silver data pipeline ingesting over 7.1 million source records and producing 13.2 million total records across eight Snowflake tables. All engineering challenges were resolved through targeted Pythonic fixes: column normalization, explicit schema management, PyArrow type coercion, and server-side Snowpark predicate pushdown for temporal filtering.
+
+The pipeline is fully automated, idempotent, and self-validating via \texttt{verify\_pipeline.py}. The Silver layer now provides analytics-ready tables for the three core middle-mile intelligence functions: geospatial risk scoring (accidents), hard-constraint safety veto (bridges), and logistics delay pattern learning (DataCo + Operations DB). NOAA GSOD weather alert extraction is structurally complete and activated once station CSV files are deposited in \texttt{data/noaa/}.
+
+\newpage
+\appendix
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Dataset \& Knowledge Base Documentation}
+\label{app:datasets}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Dataset Names, Modalities, and Source Links}
+
+The system ingests five datasets spanning three data modalities. The first three are \textbf{core middle-mile datasets} with GPS coordinates enabling geospatial overlay on freight corridors; the remaining two are \textbf{supporting datasets} for model training and RAG retrieval.
+
+\begin{table}[H]
+\centering
+\caption{Complete Dataset Inventory}
+\small
+\begin{tabularx}{\textwidth}{@{}c l l l r X@{}}
+\toprule
+\textbf{\#} & \textbf{Dataset} & \textbf{Modality} & \textbf{Source} & \textbf{Size} & \textbf{Architecture Layer} \\
+\midrule
+1 & US Accidents (2016--2023) & Geospatial Tabular (CSV) & \href{https://www.kaggle.com/datasets/sobhanmoosavi/us-accidents}{Kaggle} & 7.7M rows & Data Perception \\
+2 & NOAA GSOD Weather & Time-Series Geospatial (Parquet) & \href{https://registry.opendata.aws/noaa-gsod/}{AWS Open Data} & Multi-TB & Intelligence \& Forecasting \\
+3 & National Bridge Inventory & Geospatial Tabular (CSV/GeoJSON) & \href{https://geodata.bts.gov/datasets/national-bridge-inventory/}{US DOT BTS} & 600K+ & Validation \& Safety \\
+4 & DataCo Supply Chain & Tabular (CSV) & \href{https://www.kaggle.com/datasets/shashwatwork/dataco-smart-supply-chain-for-big-data-analysis}{Kaggle} & 180K & Supporting (SRSNet Training) \\
+5 & Logistics Operations DB & Tabular (14 CSVs) & \href{https://www.kaggle.com/datasets/yogape/logistics-operations-database}{Kaggle} & 550K & Supporting (RAG Knowledge Base) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Domain Relevance to the Project}
+
+Middle-mile logistics --- the transportation leg between distribution centers --- requires \textbf{route-level, geospatially grounded} data for disruption detection and rerouting. The three core datasets provide orthogonal coverage of the middle-mile problem space:
+
+\begin{itemize}
+    \item \textbf{US Accidents} $\rightarrow$ \textit{``Where are the historical risk zones along freight corridors?''} --- Enables proactive avoidance of accident blackspots on I-70, I-80, I-55, I-10.
+    \item \textbf{NOAA Weather} $\rightarrow$ \textit{``What real-time environmental conditions could disrupt transit?''} --- Provides the disruption trigger signals (icing, flooding, low visibility) that initiate the rerouting workflow.
+    \item \textbf{Bridge Inventory} $\rightarrow$ \textit{``Can the vehicle physically traverse this alternate route?''} --- Enforces hard physical constraints (clearance, load limits) that no AI reasoning can override.
+\end{itemize}
+
+Together, these datasets answer the three fundamental middle-mile questions: \textit{risk}, \textit{trigger}, and \textit{feasibility}.
+
+The two supporting datasets extend coverage: \textbf{DataCo} provides historical delay patterns for SRSNet forecasting model training, while the \textbf{Logistics Operations DB} (14 interconnected tables covering loads, trips, drivers, trucks, fuel, maintenance, and safety incidents) is vectorized into \texttt{SILVER.LOGISTICS\_VECTORIZED} to serve as the RAG knowledge base for natural language queries.
+
+\subsection{Multimodal Ingestion Details}
+
+\begin{table}[H]
+\centering
+\caption{Ingestion Methods by Dataset}
+\small
+\begin{tabularx}{\textwidth}{@{}l l l X@{}}
+\toprule
+\textbf{Dataset} & \textbf{Ingestion Method} & \textbf{Bronze Table} & \textbf{Format Details} \\
+\midrule
+US Accidents & \textbf{Snowpipe} (real-time) via S3 & \texttt{TRAFFIC\_INCIDENTS} & CSV $\rightarrow$ 47 columns (GPS, severity, road features, weather at scene) \\
+NOAA GSOD & \textbf{External Table} (direct S3) & \texttt{NOAA\_GSOD} & Parquet $\rightarrow$ station-level daily summaries (PRCP, SNWD, VISIB, TEMP) \\
+Bridge Inventory & \textbf{Snowpipe} via S3 & \texttt{BRIDGE\_INVENTORY} & CSV/GeoJSON $\rightarrow$ structural attributes + lat/lon coordinates \\
+DataCo Supply Chain & \textbf{Snowpipe} via S3 & \texttt{RAW\_LOGISTICS} & CSV $\rightarrow$ 48 columns, Latin-1 encoding, normalized headers \\
+Logistics Ops DB & \textbf{Snowpipe} via S3 & \texttt{LOGISTICS} & 14 CSVs $\rightarrow$ joined into single table with foreign-key resolution \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{itemize}
+    \item \textbf{Snowpipe} provides event-driven, near-real-time ingestion for four datasets via S3 event notifications.
+    \item \textbf{External Tables} avoid data duplication for the multi-terabyte NOAA archive --- queries run directly against S3.
+    \item \textbf{Automated S3 Loading}: See \texttt{src/sql/02\_setup\_s3\_automation.sql} and \texttt{src/ingestion/setup\_s3\_automation.py}.
+\end{itemize}
+
+\subsection{Data Preprocessing and Sampling Strategy}
+
+\begin{table}[H]
+\centering
+\caption{Preprocessing Scripts and Sampling Strategies}
+\small
+\begin{tabularx}{\textwidth}{@{}l l X X l@{}}
+\toprule
+\textbf{Dataset} & \textbf{Script} & \textbf{Key Transformations} & \textbf{Sampling Strategy} & \textbf{Silver Output} \\
+\midrule
+US Accidents & \texttt{preprocess\_accidents.py} & Aggregation by State/City/Hour; severity averaging; risk scoring & Geospatial clustering by proximity to freight corridors with severity weighting & \texttt{RISK\_HEATMAP\_VIEW} \\
+\addlinespace
+NOAA GSOD & \texttt{preprocess\_weather.py} & Rule-based alert extraction (PRCP $>$ 50mm, SNWD $>$ 10cm, VISIB $<$ 1mi); semantic description generation & Temporal windowing --- 4--8 hour adaptive patches aligned to middle-mile transit windows for SRSNet input & \texttt{WEATHER\_ALERTS} \\
+\addlinespace
+Bridge Inventory & \texttt{preprocess\_bridges.py} & Lat/lon $\rightarrow$ Snowflake \texttt{GEOGRAPHY} via \texttt{ST\_GEOGFROMTEXT}; constraint field extraction & \textbf{No sampling} --- full 600K+ inventory retained for exhaustive spatial join coverage (safety-critical) & \texttt{BRIDGE\_INVENTORY\_GEO} \\
+\addlinespace
+DataCo & \texttt{preprocess\_dataco.py} & Delay propensity scores; Z-score by shipping mode; late delivery risk cast & Full dataset retained for SRSNet training coverage & \texttt{CLEANED\_LOGISTICS} \\
+\addlinespace
+Logistics Ops & \texttt{preprocess\_logistics.py} & Record-to-text transformation; metadata JSON construction; chunk ID assignment & Full dataset --- all records vectorized for RAG retrieval completeness & \texttt{LOGISTICS\_VECTORIZED} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\newpage
+\section{Retrieval \& Processing Pipeline}
+\label{app:retrieval}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\noindent\textit{Full documentation: \texttt{docs/retrieval\_processing\_pipeline.md}}
+
+\subsection{Chunking Strategy: Semantic Record-Level}
+
+We employ a \textbf{Semantic Record-Level} chunking strategy rather than arbitrary text splitting. Structured database records from \texttt{BRONZE.LOGISTICS} are transformed into natural language sentences. Each ``chunk'' represents a complete logistics event (trip, maintenance record, or safety incident), preserving entity relationships.
+
+\begin{itemize}
+    \item \textbf{Strategy:} Record-to-Text Mapping
+    \item \textbf{Implementation:} \texttt{src/preprocessing/preprocess\_logistics.py}
+    \item \textbf{Rationale:} Logistics data is inherently transactional. A chunk is most meaningful when it represents a complete event, rather than a fixed-size text window.
+\end{itemize}
+
+\textbf{Example Transformation:}
+\begin{lstlisting}[caption={Semantic chunking: structured data to natural language}]
+# Input (structured):
+Load_ID: 123, Origin: Chicago, Destination: St. Louis, Status: Late
+
+# Output (chunk):
+"Record type: load. Route: Chicago -> St. Louis, 300 miles.
+ Status: Late. On-time: False."
+\end{lstlisting}
+
+Additional chunking strategies used across the pipeline:
+\begin{itemize}
+    \item \textbf{Time-Series:} Adaptive patching (4--8 hour windows) for SRSNet forecasting, aligned to middle-mile transit time scales.
+    \item \textbf{Text:} 512--1024 token segments with sliding windows for longer document inputs.
+    \item \textbf{Geospatial:} 10-mile route segments for localized accident risk scoring.
+\end{itemize}
+
+\subsection{Indexing and Retrieval Configuration}
+
+The system uses a \textbf{Dense Vector Retrieval} configuration leveraging Snowflake's native vector support:
+
+\begin{itemize}
+    \item \textbf{Vector Type:} Snowflake \texttt{VECTOR(FLOAT, 768)} with L2 distance
+    \item \textbf{Retrieval:} Cortex Search with ReMindRAG-guided traversal
+    \item \textbf{Hybrid:} Dense/sparse retrieval with reranking for improved relevance
+    \item \textbf{Metadata:} Chunks indexed alongside a JSON \texttt{METADATA} object containing \texttt{driver\_id}, \texttt{truck\_id}, \texttt{event\_date}, and \texttt{revenue} to support hybrid filtering.
+    \item \textbf{Table:} \texttt{HYPERLOGISTICS\_DB.SILVER.LOGISTICS\_VECTORIZED}
+\end{itemize}
+
+\subsection{Embedding Models Used}
+
+\begin{table}[H]
+\centering
+\caption{Embedding and LLM Models}
+\begin{tabular}{@{}llrl@{}}
+\toprule
+\textbf{Model} & \textbf{Provider} & \textbf{Dimensions} & \textbf{Purpose} \\
+\midrule
+\texttt{snowflake-arctic-embed-m} & Snowflake Cortex & 768 & Primary embedding model for RAG vector search \\
+\texttt{snowflake-arctic} & Snowflake Cortex & --- & LLM for grounded answer generation \\
+Sentence Transformers & HuggingFace & 768 & Fallback for comparison/evaluation \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Running the embedding model within Snowflake eliminates the need to move data to external GPU clusters, ensuring low latency and high security.
+
+\subsection{Example Retrieval Outputs}
+
+\subsubsection{Query 1: ``What are the recent safety concerns for driver DRV\_102?''}
+
+\begin{itemize}
+    \item \textbf{Retrieved Chunk:} \textit{``Record type: safety. Safety incident: Hard Braking involving driver DRV\_102 on 2024-02-15. Details: Sudden stop on I-95 due to traffic surge.''}
+    \item \textbf{Cortex AI Response:} \textit{``Based on the safety logs for Feb 15th, Driver DRV\_102 had a hard braking incident on I-95. The driver reported a traffic surge, and no damage was recorded. Recommendation: Schedule a quick safety refresh on maintaining distance in high-traffic zones.''}
+\end{itemize}
+
+\subsubsection{Query 2: ``Check if my route from Chicago to St.\ Louis is safe today.''}
+
+\begin{itemize}
+    \item \textbf{Retrieved Context:}
+    \begin{itemize}
+        \item \textit{Accident Data:} 12 high-severity incidents on I-55 in the last 24 hours.
+        \item \textit{Weather Alert:} ``Station 724340 reports Heavy precipitation expected on 2024-02-27.''
+    \end{itemize}
+    \item \textbf{Cortex AI Response:} \textit{``Warning: The standard I-55 route from Chicago to St.\ Louis is currently high-risk. There are 12 active incident reports and heavy rain forecast for the next 6 hours. Recommendation: Delay departure by 4 hours or reroute via I-57 to avoid the storm cell.''}
+\end{itemize}
+
+\subsection{Preprocessing Scripts in GitHub}
+
+All processing logic is automated via the following scripts in the repository:
+\begin{itemize}
+    \item \texttt{src/preprocessing/preprocess\_logistics.py} --- Semantic chunking \& vectorization prep
+    \item \texttt{src/preprocessing/preprocess\_accidents.py} --- Risk heatmap aggregation
+    \item \texttt{src/preprocessing/preprocess\_weather.py} --- Weather alert extraction
+    \item \texttt{src/preprocessing/preprocess\_bridges.py} --- Spatial normalization (\texttt{GEOGRAPHY} conversion)
+    \item \texttt{src/preprocessing/preprocess\_dataco.py} --- Delay propensity feature engineering
+    \item \texttt{notebooks/srsnet\_training.ipynb} --- SRSNet model training notebook
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\newpage
+\section{Application Integration}
+\label{app:application}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\noindent\textit{Full documentation: \texttt{docs/application\_integration.md}}
+
+\subsection{Streamlit Project Interface}
+
+The dashboard (\texttt{src/app/dashboard.py}) connects directly to Snowflake via Snowpark and provides four main tabs:
+
+\begin{enumerate}
+    \item \textbf{Risk Heatmap} --- Displays traffic incident hotspots across the US via Folium interactive maps, powered by \texttt{SILVER.RISK\_HEATMAP\_VIEW}.
+    \item \textbf{Route Comparison} --- Side-by-side AI-suggested vs.\ original route with delay metrics and bridge clearance verification.
+    \item \textbf{Evidence \& Reasoning} --- Shows the raw grounding data (accident risk, weather alerts, bridge constraints, logistics vectors) that the AI uses to form its answers.
+    \item \textbf{Query Logs} --- Full audit trail of every AI query, response, grounding sources, and response time.
+\end{enumerate}
+
+The sidebar contains a natural language input (``Ask the AI Agent'') where users can submit logistics queries. The system:
+\begin{enumerate}
+    \item Retrieves relevant evidence from Silver-layer tables via \texttt{get\_evidence()}.
+    \item Passes the evidence as context to \textbf{Snowflake Cortex} for grounded generation.
+    \item Displays the grounded AI response with source citations.
+    \item Logs the query, response, and metadata to \texttt{GOLD.QUERY\_LOGS}.
+\end{enumerate}
+
+\subsection{Evidence Display and Grounded Answer Generation}
+
+When a user submits a query, the \texttt{get\_evidence()} function retrieves supporting data from three Silver-layer tables:
+
+\begin{table}[H]
+\centering
+\caption{Evidence Sources for Grounded AI Responses}
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Source Table} & \textbf{Data Type} & \textbf{Example Evidence} \\
+\midrule
+\texttt{RISK\_HEATMAP\_VIEW} & Accident risk aggregations & ``Miami, FL: 2,340 incidents, avg severity 2.8'' \\
+\texttt{BRIDGE\_INVENTORY\_GEO} & Bridge compliance data & ``I-95 Bridge: 14.2ft clearance, 40 ton limit, Fair'' \\
+\texttt{LOGISTICS\_VECTORIZED} & Operational text chunks & ``Trip T-5521: Chicago $\rightarrow$ St.\  Louis, 297 mi, on-time'' \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+This evidence is injected into the Cortex AI prompt as structured context, ensuring that the AI's answer is \textbf{grounded in real data} rather than hallucinated. The ``Evidence \& Reasoning'' tab (Tab 3) allows dispatchers to inspect the raw sources behind any recommendation.
+
+\textbf{Example Grounded Response:}
+\begin{quote}
+\textbf{User Query:} ``What are the riskiest routes near Chicago?''
+
+\textbf{AI Response:} ``Based on accident data, the Chicago metropolitan area has over 15,200 recorded traffic incidents with an average severity of 2.4. The Chicago to St.\ Louis corridor (I-55) shows the highest concentration of delays, with 3 late deliveries in the past month. Recommendation: Consider routing via I-65 through Indianapolis for time-sensitive shipments.''
+
+\textit{Grounded on: SILVER.RISK\_HEATMAP\_VIEW, SILVER.LOGISTICS\_VECTORIZED}
+\end{quote}
+
+\subsection{Query Logging and Evaluation Outputs}
+
+Every query submitted through the dashboard is automatically logged to \texttt{GOLD.QUERY\_LOGS}:
+
+\begin{table}[H]
+\centering
+\caption{Query Log Schema}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Column} & \textbf{Description} \\
+\midrule
+\texttt{QUERY\_ID}          & Unique identifier (UUID) \\
+\texttt{USER\_ID}           & Snowflake username of the querying user \\
+\texttt{QUERY\_TEXT}        & Raw natural language question \\
+\texttt{RESPONSE\_TEXT}     & Full AI-generated response \\
+\texttt{GROUNDING\_SOURCES} & JSON array of Silver tables used as evidence \\
+\texttt{EXECUTION\_TIME\_MS} & End-to-end response time in milliseconds \\
+\texttt{IS\_GROUNDED}       & Boolean --- TRUE if evidence was found and used \\
+\texttt{CREATED\_AT}        & Timestamp of the query \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The ``Query Logs'' tab provides three summary metrics: \textbf{Total Queries}, \textbf{Grounded \%}, and \textbf{Avg Response Time}. These metrics support the evaluation framework defined in the Phase 1 proposal.
+
+\subsection{Screenshots and Deployment}
+
+\begin{itemize}
+    \item \textbf{Local Deployment:} \texttt{streamlit run src/app/dashboard.py} $\rightarrow$ \texttt{http://localhost:8501}
+    \item \textbf{Production Target:} Streamlit in Snowflake at \texttt{https://\textless account\textgreater.snowflakecomputing.com/streamlit/apps/HYPERLOGISTICS\_APP}
+    \item \textbf{Technology Stack:} Streamlit + Folium (maps), Snowpark (backend), Cortex (AI engine), S3 $\rightarrow$ Snowpipe $\rightarrow$ Medallion (data pipeline)
+\end{itemize}
+
+% Screenshots can be added here if available:
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=\textwidth]{screenshots/dashboard_risk_heatmap.png}
+%     \caption{Risk Heatmap tab showing traffic incident hotspots}
+% \end{figure}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\newpage
+\section{Snowflake Data Pipeline \& Schema}
+\label{app:snowflake}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\noindent\textit{Full documentation: \texttt{docs/snowflake\_data\_pipeline.md}}
+
+\subsection{Snowflake Schema (Tables, Stages, Views)}
+
+The database \texttt{HYPERLOGISTICS\_DB} follows a three-layer Medallion Architecture:
+
+\begin{lstlisting}[caption={Medallion Architecture layout}]
+HYPERLOGISTICS_DB
+  +-- BRONZE (Raw Data)          -- Untouched data from S3
+  +-- SILVER (Cleaned/Enriched)  -- Preprocessed, analytics-ready
+  +-- GOLD   (Business Logic)    -- AI outputs, query logs, reports
+\end{lstlisting}
+
+\begin{table}[H]
+\centering
+\caption{Bronze Layer Tables}
+\small
+\begin{tabular}{@{}llrl@{}}
+\toprule
+\textbf{Table} & \textbf{Source Dataset} & \textbf{Records} & \textbf{Purpose} \\
+\midrule
+\texttt{TRAFFIC\_INCIDENTS} & US Accidents & $\sim$3.5M & GPS-tagged incidents for risk heatmaps \\
+\texttt{BRIDGE\_INVENTORY} & National Bridge Inventory & 624K & Bridge clearance/load limits for safety veto \\
+\texttt{RAW\_LOGISTICS} & DataCo Supply Chain & 180K & Historical delay patterns for SRSNet \\
+\texttt{LOGISTICS} & Logistics Operations DB & 2.7M & Trucking ops for RAG knowledge base \\
+\texttt{NOAA\_GSOD} (ext.) & NOAA GSOD & Millions & Weather disruption signals \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Silver Layer Tables}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Table/View} & \textbf{Source} & \textbf{Purpose} \\
+\midrule
+\texttt{RISK\_HEATMAP\_VIEW} & \texttt{TRAFFIC\_INCIDENTS} & Aggregated incident counts by State/City/Hour \\
+\texttt{BRIDGE\_INVENTORY\_GEO} & \texttt{BRIDGE\_INVENTORY} & Bridge data with \texttt{GEOGRAPHY} type for spatial joins \\
+\texttt{CLEANED\_LOGISTICS} & \texttt{RAW\_LOGISTICS} & Delay propensity scores for SRSNet training \\
+\texttt{LOGISTICS\_VECTORIZED} & \texttt{LOGISTICS} & Text chunks + metadata for RAG retrieval \\
+\texttt{WEATHER\_ALERTS} & \texttt{NOAA\_GSOD} & Semantic weather alerts (rain, snow, low visibility) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Gold Layer Tables}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Table} & \textbf{Purpose} \\
+\midrule
+\texttt{VECTOR\_EMBEDDINGS} & Cortex-generated 768-dim vectors for semantic search \\
+\texttt{DISRUPTION\_REPORTS} & AI-generated disruption impact reports \\
+\texttt{QUERY\_LOGS} & Full audit trail of every AI query \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Stages \& Pipes (Automated S3 Ingestion)}
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Stage} & \textbf{S3 Path} & \textbf{Target Table} & \textbf{Pipe} \\
+\midrule
+\texttt{ACCIDENTS\_STAGE} & \texttt{s3://bucket/accidents/} & \texttt{TRAFFIC\_INCIDENTS} & \texttt{ACCIDENTS\_PIPE} \\
+\texttt{BRIDGES\_STAGE} & \texttt{s3://bucket/bridges/} & \texttt{BRIDGE\_INVENTORY} & \texttt{BRIDGES\_PIPE} \\
+\texttt{DATACO\_STAGE} & \texttt{s3://bucket/dataco/} & \texttt{RAW\_LOGISTICS} & \texttt{DATACO\_PIPE} \\
+\texttt{LOGISTICS\_STAGE} & \texttt{s3://bucket/logistics/} & \texttt{LOGISTICS} & \texttt{LOGISTICS\_PIPE} \\
+\texttt{NOAA\_S3\_STAGE} & \texttt{s3://noaa-gsod-pds/} & \texttt{NOAA\_GSOD} (ext.) & N/A \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Reproducible Ingestion Scripts (SQL / Snowpark / Python)}
+
+Scripts are run in the following order:
+
+\begin{enumerate}
+    \item \texttt{src/sql/00\_create\_database.sql} --- Creates database, 3 schemas, and all Bronze/Silver/Gold tables
+    \item \texttt{src/sql/01\_setup\_noaa.sql} --- Creates external table pointing to public NOAA S3 bucket
+    \item \texttt{src/sql/02\_setup\_s3\_automation.sql} --- Creates S3 stages and Snowpipe for automated ingestion
+    \item \texttt{upload\_to\_s3.py} --- Uploads local CSV files to S3 (Snowpipe auto-loads)
+    \item \texttt{src/preprocessing/preprocess\_*.py} --- Transforms Bronze $\rightarrow$ Silver via Snowpark Python
+\end{enumerate}
+
+\subsection{Example Queries Demonstrating Warehouse Connectivity}
+
+\begin{lstlisting}[language=SQL, caption={Query 1: Top accident hotspots along freight corridors}]
+SELECT STATE, CITY, INCIDENT_COUNT, AVG_SEVERITY
+FROM HYPERLOGISTICS_DB.SILVER.RISK_HEATMAP_VIEW
+ORDER BY INCIDENT_COUNT DESC LIMIT 10;
+\end{lstlisting}
+
+\begin{lstlisting}[language=SQL, caption={Query 2: Bridge clearance check for Illinois routes}]
+SELECT FEATURES_DESC_006A AS BRIDGE_NAME,
+       VERT_CLR_OVER_MT_053 AS VERTICAL_CLEARANCE_MT,
+       OPERATING_RATING_064 AS LOAD_RATING, BRIDGE_CONDITION
+FROM HYPERLOGISTICS_DB.SILVER.BRIDGE_INVENTORY_GEO
+WHERE VERT_CLR_OVER_MT_053 < 4.5 AND STATE_CODE_001 = 17
+ORDER BY VERT_CLR_OVER_MT_053 ASC;
+\end{lstlisting}
+
+\begin{lstlisting}[language=SQL, caption={Query 3: Delay analysis by shipping mode (Silver layer)}]
+SELECT SHIPPING_MODE,
+       AVG(DELAY_DAYS) AS avg_delay,
+       AVG(DELAY_PROPENSITY) AS avg_propensity
+FROM HYPERLOGISTICS_DB.SILVER.CLEANED_LOGISTICS
+GROUP BY SHIPPING_MODE
+ORDER BY avg_delay DESC;
+\end{lstlisting}
+
+\begin{lstlisting}[language=SQL, caption={Query 4: AI-powered query via Snowflake Cortex}]
+SELECT SNOWFLAKE.CORTEX.COMPLETE('snowflake-arctic',
+    'What are the main causes of supply chain delays
+     in the Midwest?');
+\end{lstlisting}
+
+\begin{lstlisting}[language=SQL, caption={Query 5: Audit trail of AI interactions}]
+SELECT QUERY_TEXT, RESPONSE_TEXT, GROUNDING_SOURCES,
+       EXECUTION_TIME_MS, IS_GROUNDED, CREATED_AT
+FROM HYPERLOGISTICS_DB.GOLD.QUERY_LOGS
+ORDER BY CREATED_AT DESC LIMIT 10;
+\end{lstlisting}
+
+\subsection{How Snowflake Integrates with the Application}
+
+\begin{table}[H]
+\centering
+\caption{Application Integration Points}
+\small
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Integration} & \textbf{Technology} & \textbf{Purpose} \\
+\midrule
+Data Ingestion & Snowpipe + S3 Events & Auto-loads CSV files from S3 into Bronze tables on arrival \\
+Data Processing & Snowpark Python API & Preprocessing scripts transform data and write to Silver tables \\
+AI Generation & Cortex (\texttt{COMPLETE}) & Dashboard queries the LLM for grounded answers \\
+Vector Search & Cortex (\texttt{EMBED\_TEXT\_768}) & 768-dim embeddings for semantic retrieval in RAG \\
+Dashboard & Streamlit + Snowpark & Real-time queries to Silver/Gold for visualizations and metrics \\
+Observability & \texttt{GOLD.QUERY\_LOGS} & Every AI interaction logged with timing and grounding metadata \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Snowflake serves as a \textbf{unified platform}: data storage, ML inference (via Cortex), and application hosting (via Streamlit in Snowflake) --- eliminating the need for external services or data movement.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\newpage
+\section{Reproducibility Plan}
+\label{app:reproducibility}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\noindent\textit{Full documentation: \texttt{docs/reproducibility\_plan.md} and \texttt{reproducibility/README\_repoductibility.md}}
+
+\subsection{Environment Configuration}
+
+\textbf{Requirements.txt} (pinned dependencies):
+\begin{lstlisting}[caption={Key dependencies from requirements.txt}]
+snowflake-snowpark-python>=1.0.0
+streamlit>=1.0.0
+torch>=2.0.0
+transformers>=4.0.0
+sentence-transformers>=2.0.0
+pandas>=1.5.0
+numpy>=1.24.0
+boto3>=1.28.0
+folium>=0.20.0
+streamlit-folium>=0.26.0
+python-dotenv>=1.0.0
+\end{lstlisting}
+
+\textbf{Setup Commands:}
+\begin{lstlisting}[caption={Environment setup}]
+git clone https://github.com/mosomo82/
+    CS5542_SmartSC_Optimization_System.git
+cd CS5542_SmartSC_Optimization_System
+python -m venv venv
+.\venv\Scripts\activate          # Windows
+pip install -r requirements.txt
+cp .env.template .env            # Fill in credentials
+\end{lstlisting}
+
+\textbf{External Service Requirements:}
+\begin{itemize}
+    \item \textbf{Snowflake} --- Enterprise Edition on AWS (Cortex AI, Snowpipe)
+    \item \textbf{AWS S3} --- Standard tier for data staging
+    \item \textbf{Python} --- 3.10 or 3.11 (Snowpark-compatible)
+\end{itemize}
+
+\textbf{Environment Variables:} Configured in \texttt{.env} (template at \texttt{.env.template}) with Snowflake credentials (\texttt{SNOWFLAKE\_ACCOUNT}, \texttt{SNOWFLAKE\_USER}, \texttt{SNOWFLAKE\_PASSWORD}, \texttt{SNOWFLAKE\_ROLE}, \texttt{SNOWFLAKE\_WAREHOUSE}, \texttt{SNOWFLAKE\_DATABASE}, \texttt{SNOWFLAKE\_SCHEMA}), AWS keys, S3 bucket name, and region.
+
+\subsection{Model Versions and Dataset Versioning}
+
+\begin{table}[H]
+\centering
+\caption{AI Model Versions (Snowflake-Managed --- No Local GPU Required)}
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Model} & \textbf{Provider} & \textbf{Version} & \textbf{Purpose} \\
+\midrule
+\texttt{snowflake-arctic} & Snowflake Cortex & Latest (managed) & LLM for grounded answers \\
+\texttt{snowflake-arctic-embed-m} & Snowflake Cortex & Latest (managed) & 768-dim embeddings for RAG \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Dataset Versions}
+\small
+\begin{tabular}{@{}llrl@{}}
+\toprule
+\textbf{Dataset} & \textbf{Version} & \textbf{Records} & \textbf{Source} \\
+\midrule
+US Accidents & 2016--2023 (v14) & $\sim$7.7M & \href{https://www.kaggle.com/datasets/sobhanmoosavi/us-accidents}{Kaggle} \\
+DataCo Supply Chain & v1 (2020) & $\sim$180K & \href{https://www.kaggle.com/datasets/shashwatwork/dataco-smart-supply-chain-for-big-data-analysis}{Kaggle} \\
+National Bridge Inventory & NBI 2024 & $\sim$600K & \href{https://geodata.bts.gov/datasets/national-bridge-inventory/}{BTS/FHWA} \\
+NOAA GSOD & Continuous (public) & Millions & \href{https://registry.opendata.aws/noaa-gsod/}{AWS Open Data} \\
+Logistics Operations DB & v1 & $\sim$550K & \href{https://www.kaggle.com/datasets/yogape/logistics-operations-database}{Kaggle} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Data Versioning Strategy:}
+\begin{itemize}
+    \item \textbf{Bronze tables} contain raw, immutable snapshots of source CSVs.
+    \item \textbf{Silver tables} are deterministically regenerated from Bronze by the preprocessing scripts.
+    \item \textbf{Gold tables} contain runtime data (query logs) and are not expected to be identical across reproductions.
+    \item SRSNet and ReMindRAG implementations are pinned to their NeurIPS 2025 paper versions.
+\end{itemize}
+
+\subsection{Random Seeds and Configuration Files}
+
+The preprocessing pipeline is \textbf{deterministic by design} --- no random sampling or stochastic operations. All transformations use aggregations (\texttt{GROUP BY}, \texttt{AVG}, \texttt{COUNT}), column derivations (\texttt{withColumn}), and window functions (\texttt{Window.partitionBy}).
+
+For SRSNet model training (\texttt{notebooks/srsnet\_training.ipynb}):
+\begin{lstlisting}[language=Python, caption={Random seed configuration}]
+import torch, numpy as np, random
+SEED = 42  # Defined in src/config/config.yaml
+random.seed(SEED); np.random.seed(SEED)
+torch.manual_seed(SEED); torch.cuda.manual_seed_all(SEED)
+torch.backends.cudnn.deterministic = True
+\end{lstlisting}
+
+\textbf{Configuration Files:}
+\begin{table}[H]
+\centering
+\caption{Configuration Files}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{File} & \textbf{Purpose} \\
+\midrule
+\texttt{src/config/config.yaml} & Global seed (42), SRSNet hyperparams, ReMindRAG params, dataset paths \\
+\texttt{.env} / \texttt{.env.template} & Snowflake and AWS credentials \\
+\texttt{requirements.txt} & Pinned Python package versions \\
+\texttt{.gitignore} & Ensures credentials and data files are not committed \\
+\texttt{src/sql/00\_create\_database.sql} & Database schema definition (DDL) \\
+\texttt{src/sql/01\_setup\_noaa.sql} & NOAA external table configuration \\
+\texttt{src/sql/02\_setup\_s3\_automation.sql} & S3 stages, pipes, and integration setup \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Run Instructions}
+
+\textbf{Estimated Total Time: $\sim$2 hours}
+
+\begin{enumerate}
+    \item \textbf{Environment Setup ($\sim$10 min):} Clone repo, create venv, install \texttt{requirements.txt}, configure \texttt{.env} from template.
+
+    \item \textbf{Snowflake Setup ($\sim$20 min):} Run SQL scripts \textit{in order} in Snowflake Worksheets:
+    \begin{enumerate}[label=\alph*.]
+        \item \texttt{src/sql/00\_create\_database.sql} --- Database, schemas, tables
+        \item \texttt{src/sql/01\_setup\_noaa.sql} --- NOAA external table
+        \item \texttt{src/sql/02\_setup\_s3\_automation.sql} --- S3 stages and Snowpipe
+    \end{enumerate}
+
+    \item \textbf{Data Loading ($\sim$30 min):} Download datasets from source links (Table 16), place CSVs in \texttt{data/}, then run \texttt{python upload\_to\_s3.py}.
+
+    \item \textbf{Preprocessing ($\sim$15 min):}
+\begin{lstlisting}
+python src/preprocessing/preprocess_accidents.py
+python src/preprocessing/preprocess_bridges.py
+python src/preprocessing/preprocess_dataco.py
+python src/preprocessing/preprocess_logistics.py
+python src/preprocessing/preprocess_weather.py
+\end{lstlisting}
+
+    \item \textbf{Launch Dashboard ($\sim$5 min):} \texttt{streamlit run src/app/dashboard.py} $\rightarrow$ opens at \texttt{http://localhost:8501}
+
+    \item \textbf{Verify:}
+\begin{lstlisting}[language=SQL]
+-- Check Bronze layer
+SELECT COUNT(*) FROM HYPERLOGISTICS_DB.BRONZE.TRAFFIC_INCIDENTS;
+-- Check Silver layer
+SELECT COUNT(*) FROM HYPERLOGISTICS_DB.SILVER.RISK_HEATMAP_VIEW;
+-- Test Cortex AI
+SELECT SNOWFLAKE.CORTEX.COMPLETE('snowflake-arctic',
+    'What causes supply chain delays?');
+-- Check query logs
+SELECT * FROM HYPERLOGISTICS_DB.GOLD.QUERY_LOGS
+ORDER BY CREATED_AT DESC LIMIT 5;
+\end{lstlisting}
+\end{enumerate}
+
+\begin{table}[H]
+\centering
+\caption{Expected Reproduction Checkpoints}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Checkpoint} & \textbf{Expected Result} \\
+\midrule
+Database exists & \texttt{SHOW DATABASES LIKE 'HYPERLOGISTICS\%';} returns 1 row \\
+Bronze tables populated & 4+ tables with data (3.5M accidents, 180K logistics, etc.) \\
+Silver tables created & 5 tables/views with preprocessed data \\
+Dashboard loads & Streamlit app at \texttt{localhost:8501} with 4 tabs \\
+AI responds & Sidebar query returns a grounded response from Cortex \\
+Query logs recorded & \texttt{GOLD.QUERY\_LOGS} shows logged queries \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% =============================================================================
+% END OF APPENDICES — The \begin{thebibliography} section follows below
+% =============================================================================
+
+
+\newpage
+\begin{thebibliography}{9}
+
+\bibitem{srsnet}
+Wu, X., Qiu, X., et al. (2025).
+\textit{Enhancing Time Series Forecasting through Selective Representation Spaces: A Patch Perspective}.
+arXiv preprint arXiv:2510.14510.
+\url{https://arxiv.org/abs/2510.14510}
+
+\bibitem{remindrag}
+Hu, Y., Zhu, J., et al. (2025).
+\textit{ReMindRAG: Low-Cost LLM-Guided Knowledge Graph Traversal for Efficient RAG}.
+arXiv preprint arXiv:2510.13193.
+\url{https://arxiv.org/abs/2510.13193}
+
+\bibitem{cpp}
+Maggiar, A., Dicker, L., \& Mahoney, M. W. (2024).
+\textit{Consensus Planning with Primal, Dual, and Proximal Agents}.
+Amazon Science.
+\url{https://www.amazon.science/publications/consensus-planning-with-primal-dual-and-proximal-agents}
+
+\bibitem{snowpark}
+Snowflake Inc. (2025).
+\textit{Snowpark Developer Guide: Python}.
+\url{https://docs.snowflake.com/en/developer-guide/snowpark/python/index}
+
+\bibitem{dataco}
+Constante, F. (2019).
+\textit{DataCo SMART SUPPLY CHAIN FOR BIG DATA ANALYSIS} [Dataset].
+Mendeley Data.
+\url{https://www.kaggle.com/datasets/shashwatwork/dataco-smart-supply-chain-for-big-data-analysis}
+
+\bibitem{accidents}
+Moosavi, S., Samavatian, M. H., Parthasarathy, S., \& Ramnath, R. (2019).
+\textit{A Countrywide Traffic Accident Dataset}.
+In Proceedings of the 27th ACM SIGSPATIAL.
+\url{https://www.kaggle.com/datasets/sobhanmoosavi/us-accidents}
+
+\bibitem{bridges}
+Bureau of Transportation Statistics. (2025).
+\textit{National Tunnel \& Bridge Inventory} [Dataset].
+U.S. Department of Transportation.
+\url{https://geodata.bts.gov/datasets/national-bridge-inventory/}
+
+\bibitem{noaa}
+National Oceanic and Atmospheric Administration. (2025).
+\textit{Global Surface Summary of the Day (GSOD)} [Dataset].
+AWS Open Data Registry.
+\url{https://registry.opendata.aws/noaa-gsod/}
+
+\bibitem{logistics}
+Yogesh (2023).
+\textit{Logistics Operations Database} [Dataset].
+Kaggle.
+\url{https://www.kaggle.com/datasets/yogape/logistics-operations-database}
+
+\end{thebibliography}
+
+\end{document}

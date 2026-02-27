@@ -1,0 +1,47 @@
+\contentsline {section}{\numberline {1}Phase 2 Objectives}{4}{section.1}%
+\contentsline {section}{\numberline {2}Data Pipeline Architecture}{4}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Medallion Schema Design}{4}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Pipeline Orchestration}{4}{subsection.2.2}%
+\contentsline {section}{\numberline {3}Bronze Layer --- Ingestion Implementation}{5}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Column Normalization}{5}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Dataset Ingestion Summary}{6}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Notable Ingestion Challenges}{7}{subsection.3.3}%
+\contentsline {subsubsection}{\numberline {3.3.1}US Accidents --- Schema Drift on Re-run}{7}{subsubsection.3.3.1}%
+\contentsline {subsubsection}{\numberline {3.3.2}Bridge Inventory --- PyArrow Mixed-Type Serialization}{7}{subsubsection.3.3.2}%
+\contentsline {section}{\numberline {4}Silver Layer --- Preprocessing Implementation}{7}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Accidents $\rightarrow $ \texttt {SILVER.RISK\_HEATMAP\_VIEW}}{7}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Bridge Inventory $\rightarrow $ \texttt {SILVER.BRIDGE\_INVENTORY\_GEO}}{7}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}DataCo $\rightarrow $ \texttt {SILVER.CLEANED\_LOGISTICS}}{8}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Logistics Operations $\rightarrow $ \texttt {SILVER.LOGISTICS\_VECTORIZED}}{8}{subsection.4.4}%
+\contentsline {subsection}{\numberline {4.5}NOAA GSOD $\rightarrow $ \texttt {SILVER.WEATHER\_ALERTS}}{8}{subsection.4.5}%
+\contentsline {section}{\numberline {5}Pipeline Validation Results}{8}{section.5}%
+\contentsline {section}{\numberline {6}Key Challenges and Resolutions}{9}{section.6}%
+\contentsline {section}{\numberline {7}Conclusion}{10}{section.7}%
+\contentsline {section}{\numberline {A}Dataset \& Knowledge Base Documentation}{11}{appendix.A}%
+\contentsline {subsection}{\numberline {A.1}Dataset Names, Modalities, and Source Links}{11}{subsection.A.1}%
+\contentsline {subsection}{\numberline {A.2}Domain Relevance to the Project}{11}{subsection.A.2}%
+\contentsline {subsection}{\numberline {A.3}Multimodal Ingestion Details}{12}{subsection.A.3}%
+\contentsline {subsection}{\numberline {A.4}Data Preprocessing and Sampling Strategy}{13}{subsection.A.4}%
+\contentsline {section}{\numberline {B}Retrieval \& Processing Pipeline}{14}{appendix.B}%
+\contentsline {subsection}{\numberline {B.1}Chunking Strategy: Semantic Record-Level}{14}{subsection.B.1}%
+\contentsline {subsection}{\numberline {B.2}Indexing and Retrieval Configuration}{14}{subsection.B.2}%
+\contentsline {subsection}{\numberline {B.3}Embedding Models Used}{15}{subsection.B.3}%
+\contentsline {subsection}{\numberline {B.4}Example Retrieval Outputs}{15}{subsection.B.4}%
+\contentsline {subsubsection}{\numberline {B.4.1}Query 1: ``What are the recent safety concerns for driver DRV\_102?''}{15}{subsubsection.B.4.1}%
+\contentsline {subsubsection}{\numberline {B.4.2}Query 2: ``Check if my route from Chicago to St.\ Louis is safe today.''}{15}{subsubsection.B.4.2}%
+\contentsline {subsection}{\numberline {B.5}Preprocessing Scripts in GitHub}{15}{subsection.B.5}%
+\contentsline {section}{\numberline {C}Application Integration}{16}{appendix.C}%
+\contentsline {subsection}{\numberline {C.1}Streamlit Project Interface}{16}{subsection.C.1}%
+\contentsline {subsection}{\numberline {C.2}Evidence Display and Grounded Answer Generation}{16}{subsection.C.2}%
+\contentsline {subsection}{\numberline {C.3}Query Logging and Evaluation Outputs}{17}{subsection.C.3}%
+\contentsline {subsection}{\numberline {C.4}Screenshots and Deployment}{17}{subsection.C.4}%
+\contentsline {section}{\numberline {D}Snowflake Data Pipeline \& Schema}{18}{appendix.D}%
+\contentsline {subsection}{\numberline {D.1}Snowflake Schema (Tables, Stages, Views)}{18}{subsection.D.1}%
+\contentsline {subsection}{\numberline {D.2}Reproducible Ingestion Scripts (SQL / Snowpark / Python)}{19}{subsection.D.2}%
+\contentsline {subsection}{\numberline {D.3}Example Queries Demonstrating Warehouse Connectivity}{19}{subsection.D.3}%
+\contentsline {subsection}{\numberline {D.4}How Snowflake Integrates with the Application}{20}{subsection.D.4}%
+\contentsline {section}{\numberline {E}Reproducibility Plan}{21}{appendix.E}%
+\contentsline {subsection}{\numberline {E.1}Environment Configuration}{21}{subsection.E.1}%
+\contentsline {subsection}{\numberline {E.2}Model Versions and Dataset Versioning}{21}{subsection.E.2}%
+\contentsline {subsection}{\numberline {E.3}Random Seeds and Configuration Files}{22}{subsection.E.3}%
+\contentsline {subsection}{\numberline {E.4}Run Instructions}{22}{subsection.E.4}%

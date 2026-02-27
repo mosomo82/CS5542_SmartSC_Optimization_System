@@ -39,7 +39,7 @@ def preprocess_logistics(session: snowpark.Session) -> None:
     raw_df = session.table("BRONZE.LOGISTICS")
 
     record_count = raw_df.count()
-    print(f"📊 Processing {record_count} records from BRONZE.LOGISTICS...")
+    print(f"Processing {record_count} records from BRONZE.LOGISTICS...")
 
     # Generate text content from structured fields
     # Using concat to build readable text for each record type
@@ -90,7 +90,7 @@ def preprocess_logistics(session: snowpark.Session) -> None:
     # Write to Silver layer
     vectorized_df.write.mode("overwrite").save_as_table("SILVER.LOGISTICS_VECTORIZED")
 
-    print("✅ Logistics Operations preprocessing complete.")
+    print("Logistics Operations preprocessing complete.")
     print("   Output: SILVER.LOGISTICS_VECTORIZED")
     print("   Note: Run Cortex embedding separately to populate the EMBEDDING column:")
     print("         UPDATE SILVER.LOGISTICS_VECTORIZED")
@@ -98,18 +98,10 @@ def preprocess_logistics(session: snowpark.Session) -> None:
 
 
 if __name__ == "__main__":
-    from dotenv import load_dotenv
-    import os
-    load_dotenv()
+    import sys, os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+    from src.utils.snowflake_conn import get_session, close_session
 
-    session = snowpark.Session.builder.configs({
-        "account": os.getenv("SNOWFLAKE_ACCOUNT"),
-        "user": os.getenv("SNOWFLAKE_USER"),
-        "password": os.getenv("SNOWFLAKE_PASSWORD"),
-        "role": os.getenv("SNOWFLAKE_ROLE"),
-        "warehouse": os.getenv("SNOWFLAKE_WAREHOUSE"),
-        "database": os.getenv("SNOWFLAKE_DATABASE"),
-        "schema": os.getenv("SNOWFLAKE_SCHEMA")
-    }).create()
-
+    session = get_session()
     preprocess_logistics(session)
+    close_session()
