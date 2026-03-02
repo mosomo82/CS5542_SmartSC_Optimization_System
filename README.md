@@ -213,7 +213,7 @@ Interactive dashboard with risk heatmaps, natural language queries, and route co
 Logs to Snowflake Event Table; evaluated against 50-scenario golden dataset.
 
 ### Screenshots/Deployment
-Hosted in Snowflake: `https://<account>.snowflakecomputing.com/streamlit/apps/HYPERLOGISTICS_APP`
+Live app: [https://cs5542hyperlogistics.streamlit.app/](https://cs5542hyperlogistics.streamlit.app/)
 
 ---
 
