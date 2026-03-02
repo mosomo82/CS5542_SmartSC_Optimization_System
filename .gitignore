@@ -65,3 +65,21 @@ reproducibility/golden_dataset/raw/
 .snowflake/
 output/
 temp_stages/
+
+# Temp
+temp/
+
+# --- LaTeX Build Artifacts ---
+*.aux
+*.toc
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bbl
+*.blg
+*.lof
+*.lot
+
+# Claude Code
+CLAUDE.md
