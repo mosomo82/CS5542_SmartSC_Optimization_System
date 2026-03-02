@@ -1,0 +1,29 @@
+cf7f6bb | devans2718 | Merge pull request #1 from mosomo82/daniel-phase2
+207c0de | Daniel | add app screenshots for phase 2
+ede30bb | Daniel | update app url in readme and report
+18a6e0e | Daniel | add entries to .gitignore
+d0e0ec7 | Tony | Update requirements.txt
+dd58246 | Tony | Create enhanced_implementation_plans.md
+93c7252 | Tony | update
+7769ab5 | Tony | Project_Phase2
+a0f1fee | Tony | Update
+673d815 | Tony | System Implementation
+a0df45c | mosomo82 | Document DataCo Supply Chain dataset usage
+890c77c | mosomo82 | Update Reproducibility Guide introduction
+3b70bf7 | mosomo82 | Fix case sensitivity in architecture diagram path
+22d4928 | Tony | Create README_repoductibility.md
+7b58b52 | mosomo82 | Fix architecture diagram image path in README
+1502baa | Tony | Merge branch 'main' of https://github.com/mosomo82/CS5542_SmartSC_Optimization_System
+c6e8684 | Tony | update
+62fc914 | mosomo82 | Add .gitignore for project dependencies and artifacts
+77c5f5c | mosomo82 | Fix image path in README for architecture diagram
+8aafffb | Tony | Merge branch 'main' of https://github.com/mosomo82/CS5542_SmartSC_Optimization_System
+51a8529 | Tony | Update project_proposal.pdf
+26499f6 | mosomo82 | Delete docs/desktop.ini
+187ec1a | mosomo82 | Change architecture diagram to architecture2.png
+a1874ea | Tony | Update
+b2959f2 | Tony | Update
+51d348f | Tony | Merge branch 'main' of https://github.com/mosomo82/CS5542_SmartSC_Optimization_System
+f6223c3 | Tony | Create shipping-logistic-supply-chain-vector-illustration-export-import-concept-background-global-earth-map-pointers-connections-204942562.jpg
+f1b141a | mosomo82 | Update README.md
+a9a8080 | Tony | Update

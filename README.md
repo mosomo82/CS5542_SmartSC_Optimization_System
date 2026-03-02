@@ -2,6 +2,8 @@
 
 **A Snowflake-Native Supply Chain Resilience System using RAG**
 
+🚀 **[Live App: HyperLogistics Streamlit Dashboard](https://cs5542hyperlogistics.streamlit.app/)**
+
 | **Team Members** | **GitHub Role** |
 | --- | --- |
 | **Daniel Evans** | [`@devans2718`](https://github.com/devans2718)  Data/Back-End Engineer |
@@ -213,7 +215,7 @@ Interactive dashboard with risk heatmaps, natural language queries, and route co
 Logs to Snowflake Event Table; evaluated against 50-scenario golden dataset.
 
 ### Screenshots/Deployment
-Hosted in Snowflake: `https://<account>.snowflakecomputing.com/streamlit/apps/HYPERLOGISTICS_APP`
+Hosted Streamlit App: [https://cs5542hyperlogistics.streamlit.app/](https://cs5542hyperlogistics.streamlit.app/)
 
 ---
 
@@ -237,7 +239,7 @@ Hosted in Snowflake: `https://<account>.snowflakecomputing.com/streamlit/apps/HY
 
 ### Ingestion Scripts (Supporting)
 - `src/ingestion/ingest_dataco.py` — DataCo → `BRONZE.RAW_LOGISTICS`
-- `src/ingestion/ingest_logistics.py` — Logistics Ops (14 CSVs) → `BRONZE.LOGISTICS`
+- `src/ingestion/ingest_logistics.py` — Logistics (14 CSVs) → `BRONZE.LOGISTICS`
 
 ### Example Queries
 ```sql
