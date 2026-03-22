@@ -16,10 +16,13 @@ Steps executed (in order):
   6. Preprocess: Bridges    → SILVER.BRIDGE_INVENTORY_GEO
   7. Preprocess: DataCo     → SILVER.CLEANED_LOGISTICS
   8. Preprocess: Logistics  → SILVER.LOGISTICS_VECTORIZED
+
+Lab 9 (Tony): replaced all print() calls with Python logging module.
 """
 
 import os
 import sys
+import logging
 import traceback
 from pathlib import Path
 
@@ -31,30 +34,37 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 from dotenv import load_dotenv
 load_dotenv(PROJECT_ROOT / ".env")
 
+# ── logging setup ─────────────────────────────────────────────────────────────
+log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=log_level,
+    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
+)
+logger = logging.getLogger("run_pipeline")
+
 from src.utils.snowflake_conn import get_session, close_session
 
 
-# ── helpers ──────────────────────────────────────────────────────────────────
+# ── helpers ───────────────────────────────────────────────────────────────────
 def _step(label: str, fn, *args, **kwargs):
-    """Run one pipeline step, print result, continue on non-fatal errors."""
-    print(f"\n{'─'*60}")
-    print(f"[STEP] {label}")
-    print(f"{'─'*60}")
+    """Run one pipeline step, log result, continue on non-fatal errors."""
+    logger.info("─" * 60)
+    logger.info("[STEP] %s", label)
     try:
         fn(*args, **kwargs)
-        print(f"[OK] {label} completed.")
+        logger.info("[OK] %s completed.", label)
     except Exception as exc:
-        print(f"[WARN] {label} FAILED — pipeline will continue.\n  {exc}")
-        traceback.print_exc()
+        logger.warning("[WARN] %s FAILED — pipeline will continue.\n  %s", label, exc)
+        logger.debug(traceback.format_exc())
 
 
-# ── main ─────────────────────────────────────────────────────────────────────
+# ── main ──────────────────────────────────────────────────────────────────────
 def main():
     data_dir = PROJECT_ROOT / "data"
 
     session = get_session()
 
-    # ── Bronze ingestion ─────────────────────────────────────────────────────
+    # ── Bronze ingestion ──────────────────────────────────────────────────────
     from ingestion.ingest_accidents import ingest_accidents
     from ingestion.ingest_bridges   import ingest_bridges
     from ingestion.ingest_dataco    import ingest_dataco
@@ -88,7 +98,7 @@ def main():
         str(data_dir / "logistics"),
     )
 
-    # ── Silver preprocessing ─────────────────────────────────────────────────
+    # ── Silver preprocessing ──────────────────────────────────────────────────
     from preprocessing.preprocess_accidents import preprocess_accidents
     from preprocessing.preprocess_bridges   import preprocess_bridges
     from preprocessing.preprocess_dataco    import preprocess_dataco
@@ -118,9 +128,9 @@ def main():
         session,
     )
 
-    print(f"\n{'═'*60}")
-    print("[DONE] Pipeline finished. Check Snowflake for data in BRONZE / SILVER.")
-    print(f"{'═'*60}")
+    logger.info("═" * 60)
+    logger.info("[DONE] Pipeline finished. Check Snowflake for data in BRONZE / SILVER.")
+    logger.info("═" * 60)
 
     close_session()
 
