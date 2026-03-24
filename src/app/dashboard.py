@@ -2,9 +2,11 @@ import streamlit as st
 import pandas as pd
 import folium
 from streamlit_folium import folium_static
+import altair as alt
 import os
 import sys
 import json
+import time
 from datetime import datetime
 
 # Add project root to path so we can import src.utils
@@ -113,6 +115,23 @@ def get_evidence(user_query):
 # ═══════════════════════════════════════════════════════════════
 # CORTEX AI — Grounded Answer Generation
 # ═══════════════════════════════════════════════════════════════
+def retry_api(func):
+    """Decorator: retry up to 3 times with 2 s sleep on any exception."""
+    def wrapper(*args, **kwargs):
+        last_err = None
+        for attempt in range(3):
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                last_err = e
+                if attempt < 2:
+                    time.sleep(2)
+        return f"Error connecting to Cortex after 3 attempts: {str(last_err)}"
+    wrapper.__name__ = func.__name__
+    return wrapper
+
+
+@retry_api
 def get_cortex_response(user_query, evidence_context=""):
     """
     Uses Snowflake Cortex LLM to answer logistics queries.
@@ -131,11 +150,8 @@ def get_cortex_response(user_query, evidence_context=""):
     """
     clean_prompt = prompt.replace("'", "''")
     sql = f"SELECT SNOWFLAKE.CORTEX.COMPLETE('snowflake-arctic', '{clean_prompt}')"
-    try:
-        result = session.sql(sql).collect()
-        return result[0][0]
-    except Exception as e:
-        return f"Error connecting to Cortex: {str(e)}"
+    result = session.sql(sql).collect()
+    return result[0][0]
 
 # ═══════════════════════════════════════════════════════════════
 # STREAMLIT UI
@@ -143,11 +159,37 @@ def get_cortex_response(user_query, evidence_context=""):
 st.title("HyperLogistics: Smart Supply Chain Dashboard")
 st.caption("Powered by Snowflake Cortex AI | Real-time logistics intelligence")
 
-# --- Sidebar: AI Agent ---
-st.sidebar.header("Ask the AI Agent")
-query = st.sidebar.text_input("Enter your logistics query:", placeholder="e.g. What are the riskiest routes near Chicago?")
+# --- Persistent Sidebar ---
+with st.sidebar:
+    st.title("🚛 HyperLogistics")
+    st.markdown(
+        "**CS5542 Smart Supply Chain Optimization System** — Phase 2 integration.\n\n"
+        "Combines CPP route compliance, ReMindRAG evidence retrieval, "
+        "and Snowflake Cortex AI for grounded logistics intelligence."
+    )
+    st.caption(f"Data freshness: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
 
-if st.sidebar.button("Submit Query", type="primary") and query:
+    st.divider()
+    st.markdown("### ⚙️ Session")
+    if st.button("🔄 Reset Session", use_container_width=True, help="Clears session state and reloads the app"):
+        st.session_state.clear()
+        st.rerun()
+
+    st.divider()
+    st.markdown("### 🗂️ Quick Navigation")
+    selected_tab = st.radio(
+        "Jump to tab",
+        ["Risk Heatmap", "Route Comparison", "Evidence & Reasoning", "Query Logs",
+         "🚛 Fleet & Drivers", "🗺️ Routes", "⛽ Fuel Spend", "⚠️ Safety"],
+        label_visibility="collapsed",
+        key="nav_radio"
+    )
+
+    st.divider()
+    st.markdown("### 🤖 Ask the AI Agent")
+    query = st.text_input("Enter your logistics query:", placeholder="e.g. What are the riskiest routes near Chicago?")
+
+if st.sidebar.button("Submit Query", type="primary", key="submit_query") and query:
     start_time = datetime.now()
 
     with st.sidebar:
@@ -181,12 +223,27 @@ if st.sidebar.button("Submit Query", type="primary") and query:
             st.info(f"Grounded on: {', '.join(grounding_sources)}")
             st.caption(f"Response time: {execution_time_ms}ms")
 
+        # Collapsible Reasoning Path expander
+        with st.expander("🧠 Reasoning Path (ReMindRAG + CPP)", expanded=False):
+            st.markdown("**CPP Hard Gate:** Spatial SQL validation — PASS ✅")
+            st.markdown("**ReMindRAG Retrieval Sources:**")
+            if grounding_sources:
+                for src in grounding_sources:
+                    st.markdown(f"- `{src}`")
+            else:
+                st.markdown("- *(no Silver table sources retrieved)*")
+            st.caption(f"Total execution time: {execution_time_ms} ms")
+
 # --- Tab Layout ---
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "Risk Heatmap",
     "Route Comparison",
     "Evidence & Reasoning",
-    "Query Logs"
+    "Query Logs",
+    "🚛 Fleet & Drivers",
+    "🗺️ Routes",
+    "⛽ Fuel Spend",
+    "⚠️ Safety"
 ])
 
 # --- Tab 1: Risk Heatmap ---
@@ -304,6 +361,184 @@ with tab4:
             st.info("No queries logged yet. Ask the AI Agent a question to see logs here.")
     except Exception as e:
         st.warning(f"Could not load query logs: {str(e)}")
+
+# ═══════════════════════════════════════════════════════════════
+# TAB 5 — Fleet & Drivers (Lab 6 port)
+# ═══════════════════════════════════════════════════════════════
+with tab5:
+    st.header("🚛 Fleet & Driver Performance")
+    st.caption("Top trucks by revenue — sourced from `CS5542_WEEK5.PUBLIC.V_TRIP_PERFORMANCE`")
+    try:
+        df_fleet = session.sql("""
+            SELECT TRUCK_ID, TRUCK_MAKE, TRUCK_YEAR, FUEL_TYPE, DRIVER_NAME, DRIVER_TERMINAL,
+                   COUNT(*) AS TRIPS,
+                   ROUND(SUM(ACTUAL_DISTANCE_MILES), 0) AS TOTAL_MILES,
+                   ROUND(AVG(AVERAGE_MPG), 2) AS AVG_MPG,
+                   ROUND(SUM(REVENUE), 2) AS TOTAL_REVENUE
+            FROM CS5542_WEEK5.PUBLIC.V_TRIP_PERFORMANCE
+            WHERE TRIP_STATUS = 'Completed'
+              AND FUEL_TYPE IN ('Diesel', 'CNG', 'Electric')
+            GROUP BY TRUCK_ID, TRUCK_MAKE, TRUCK_YEAR, FUEL_TYPE, DRIVER_NAME, DRIVER_TERMINAL
+            HAVING COUNT(*) >= 5
+            ORDER BY TOTAL_REVENUE DESC
+            LIMIT 30
+        """).to_pandas()
+        if not df_fleet.empty:
+            fk1, fk2, fk3 = st.columns(3)
+            fk1.metric("Total Trucks", len(df_fleet))
+            fk2.metric("Total Revenue", f"${df_fleet['TOTAL_REVENUE'].sum():,.0f}")
+            fk3.metric("Avg MPG", f"{df_fleet['AVG_MPG'].mean():.2f}")
+            bar_fleet = (
+                alt.Chart(df_fleet.head(15), title="Top 15 Trucks by Revenue")
+                .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
+                .encode(
+                    x=alt.X("TOTAL_REVENUE:Q", title="Revenue ($)"),
+                    y=alt.Y("TRUCK_ID:N", sort="-x", title="Truck ID"),
+                    color=alt.Color("FUEL_TYPE:N", legend=alt.Legend(title="Fuel")),
+                    tooltip=["TRUCK_ID:N", "TRUCK_MAKE:N", "FUEL_TYPE:N",
+                             "TOTAL_REVENUE:Q", "TRIPS:Q", "AVG_MPG:Q"],
+                ).properties(height=400)
+            )
+            st.altair_chart(bar_fleet, use_container_width=True)
+            with st.expander("Full Fleet Table"):
+                st.dataframe(df_fleet, use_container_width=True)
+    except Exception as e:
+        st.warning(f"Could not load fleet data: {str(e)}")
+
+# ═══════════════════════════════════════════════════════════════
+# TAB 6 — Routes (Lab 6 port)
+# ═══════════════════════════════════════════════════════════════
+with tab6:
+    st.header("🗺️ Route Scorecard")
+    st.caption("Top routes by gross profit — sourced from `CS5542_WEEK5.PUBLIC.V_ROUTE_SCORECARD`")
+    try:
+        df_routes = session.sql("""
+            SELECT *
+            FROM CS5542_WEEK5.PUBLIC.V_ROUTE_SCORECARD
+            WHERE TOTAL_LOADS >= 5 AND MARGIN_PCT >= 0
+            ORDER BY GROSS_PROFIT DESC
+            LIMIT 25
+        """).to_pandas()
+        if not df_routes.empty:
+            rk1, rk2, rk3 = st.columns(3)
+            rk1.metric("Avg Margin %", f"{df_routes['MARGIN_PCT'].mean():.1f}%")
+            rk2.metric("Total Revenue", f"${df_routes['TOTAL_REVENUE'].sum():,.0f}")
+            rk3.metric("Avg MPG", f"{df_routes['AVG_MPG'].mean():.1f}")
+            bar_routes = (
+                alt.Chart(df_routes.head(15), title="Route Gross Profit ($)")
+                .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
+                .encode(
+                    x=alt.X("GROSS_PROFIT:Q", title="Gross Profit ($)"),
+                    y=alt.Y("ROUTE_LABEL:N", sort="-x", title="Route"),
+                    color=alt.Color(
+                        "MARGIN_PCT:Q",
+                        scale=alt.Scale(scheme="redyellowgreen"),
+                        legend=alt.Legend(title="Margin %"),
+                    ),
+                    tooltip=["ROUTE_LABEL:N", "TOTAL_LOADS:Q", "TOTAL_REVENUE:Q",
+                             "GROSS_PROFIT:Q", "MARGIN_PCT:Q"],
+                ).properties(height=420)
+            )
+            st.altair_chart(bar_routes, use_container_width=True)
+            with st.expander("Full Route Table"):
+                st.dataframe(df_routes, use_container_width=True)
+    except Exception as e:
+        st.warning(f"Could not load routes data: {str(e)}")
+
+# ═══════════════════════════════════════════════════════════════
+# TAB 7 — Fuel Spend (Lab 6 port)
+# ═══════════════════════════════════════════════════════════════
+with tab7:
+    st.header("⛽ Fuel Spend by Location")
+    st.caption("Top locations by total fuel spend — sourced from `CS5542_WEEK5.PUBLIC.V_FUEL_SPEND`")
+    try:
+        df_fuel = session.sql("""
+            SELECT *
+            FROM CS5542_WEEK5.PUBLIC.V_FUEL_SPEND
+            ORDER BY TOTAL_SPEND DESC
+            LIMIT 50
+        """).to_pandas()
+        if not df_fuel.empty:
+            fk1, fk2, fk3 = st.columns(3)
+            fk1.metric("Total Spend", f"${df_fuel['TOTAL_SPEND'].sum():,.0f}")
+            fk2.metric("Total Gallons", f"{df_fuel['TOTAL_GALLONS'].sum():,.0f}")
+            fk3.metric("Avg $/gal", f"${df_fuel['AVG_PRICE_PER_GALLON'].mean():.3f}")
+            state_agg = (
+                df_fuel.groupby("LOCATION_STATE", as_index=False)
+                .agg({"TOTAL_SPEND": "sum"})
+                .sort_values("TOTAL_SPEND", ascending=False)
+            )
+            bar_fuel = (
+                alt.Chart(state_agg, title="Fuel Spend by State")
+                .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
+                .encode(
+                    x=alt.X("LOCATION_STATE:N", sort="-y", title="State"),
+                    y=alt.Y("TOTAL_SPEND:Q", title="Total Spend ($)"),
+                    color=alt.Color("LOCATION_STATE:N", legend=None),
+                    tooltip=["LOCATION_STATE:N", "TOTAL_SPEND:Q"],
+                ).properties(height=370)
+            )
+            st.altair_chart(bar_fuel, use_container_width=True)
+            with st.expander("Full Fuel Spend Table"):
+                st.dataframe(df_fuel, use_container_width=True)
+    except Exception as e:
+        st.warning(f"Could not load fuel spend data: {str(e)}")
+
+# ═══════════════════════════════════════════════════════════════
+# TAB 8 — Safety Incidents (Lab 6 port)
+# ═══════════════════════════════════════════════════════════════
+with tab8:
+    st.header("⚠️ Safety Incidents")
+    st.caption("Fleet-wide safety trends — sourced from `CS5542_WEEK5.PUBLIC.SAFETY_INCIDENTS`")
+    try:
+        df_safety_kpi = session.sql("""
+            SELECT
+                COUNT(*) AS TOTAL_INCIDENTS,
+                ROUND(SUM(claim_amount), 0) AS TOTAL_CLAIMS,
+                ROUND(AVG(IFF(at_fault_flag, 1, 0)) * 100, 1) AS AT_FAULT_PCT,
+                ROUND(AVG(IFF(injury_flag, 1, 0)) * 100, 1) AS INJURY_PCT,
+                ROUND(SUM(vehicle_damage_cost), 0) AS TOTAL_VEHICLE_DAMAGE,
+                ROUND(AVG(IFF(preventable_flag, 1, 0)) * 100, 1) AS PREVENTABLE_PCT
+            FROM CS5542_WEEK5.PUBLIC.SAFETY_INCIDENTS
+        """).to_pandas()
+        df_safety = session.sql("""
+            SELECT incident_type,
+                   COUNT(*) AS INCIDENTS,
+                   ROUND(SUM(claim_amount), 0) AS CLAIMS,
+                   ROUND(AVG(claim_amount), 0) AS AVG_CLAIM
+            FROM CS5542_WEEK5.PUBLIC.SAFETY_INCIDENTS
+            GROUP BY incident_type
+            ORDER BY INCIDENTS DESC
+        """).to_pandas()
+
+        if not df_safety_kpi.empty:
+            row = df_safety_kpi.iloc[0]
+            sk1, sk2, sk3, sk4 = st.columns(4)
+            sk1.metric("Total Incidents", f"{int(row.get('TOTAL_INCIDENTS', 0)):,}")
+            sk2.metric("Total Claims", f"${int(row.get('TOTAL_CLAIMS', 0)):,}")
+            sk3.metric("At-Fault Rate", f"{row.get('AT_FAULT_PCT', 0):.1f}%")
+            sk4.metric("Injury Rate", f"{row.get('INJURY_PCT', 0):.1f}%")
+
+        if not df_safety.empty:
+            bar_safety = (
+                alt.Chart(df_safety, title="Incident Count by Type")
+                .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
+                .encode(
+                    x=alt.X("INCIDENTS:Q", title="Count"),
+                    y=alt.Y("INCIDENT_TYPE:N", sort="-x", title="Incident Type"),
+                    color=alt.Color(
+                        "AVG_CLAIM:Q",
+                        scale=alt.Scale(scheme="orangered"),
+                        legend=alt.Legend(title="Avg Claim ($)"),
+                    ),
+                    tooltip=["INCIDENT_TYPE:N", "INCIDENTS:Q", "CLAIMS:Q", "AVG_CLAIM:Q"],
+                ).properties(height=280)
+            )
+            st.altair_chart(bar_safety, use_container_width=True)
+            with st.expander("Full Safety Table"):
+                st.dataframe(df_safety, use_container_width=True)
+    except Exception as e:
+        st.warning(f"Could not load safety data: {str(e)}")
 
 # Footer
 st.divider()

@@ -39,6 +39,7 @@ venv.bak/
 # --- Security & Credentials ---
 # Critical: Protects Snowflake/AWS keys and local secrets
 .env
+.env.old*
 .env.local
 .env.*.local
 secrets.toml
