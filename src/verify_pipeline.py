@@ -7,7 +7,7 @@ Run from the project root:
 Logs row counts, expected minimums, and a PASS / FAIL for each table.
 Also logs a few sample rows from any table that passes.
 
-Lab 9 (Tony):
+Lab 9:
   - Replaced all print() calls with Python logging module.
   - Added schema assertions for all 4 SILVER tables:
       RISK_HEATMAP_VIEW, BRIDGE_INVENTORY_GEO,

@@ -17,7 +17,7 @@ Steps executed (in order):
   7. Preprocess: DataCo     → SILVER.CLEANED_LOGISTICS
   8. Preprocess: Logistics  → SILVER.LOGISTICS_VECTORIZED
 
-Lab 9 (Tony): replaced all print() calls with Python logging module.
+Lab 9: replaced all print() calls with Python logging module.
 """
 
 import os
