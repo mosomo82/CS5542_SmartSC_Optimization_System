@@ -38,7 +38,7 @@ The **HyperLogistics** engine utilizes a Snowflake-native ecosystem to bridge th
 
 - **Reasoning Agent:** Employs **ReMindRAG** for LLM-guided knowledge graph traversal, grounding AI reasoning in historical disruption metadata.
 - **Predictive Analyst:** Uses **SRSNet** via Snowpark Python to predict risk propagation across middle-mile "patches" over 4–8 hour windows.
-- **Inference:** Leverages **Snowflake Cortex** (Google Gemini) for secure, on-platform generative reasoning.
+- **Inference:** Leverages **Snowflake Cortex** for secure, on-platform generative reasoning.
 
 ### **3. Validation & Safety Layer (Neuro-Symbolic)**
 
@@ -50,7 +50,7 @@ The **HyperLogistics** engine utilizes a Snowflake-native ecosystem to bridge th
 - **Dispatcher Dashboard:** A **Streamlit in Snowflake** application featuring interactive risk heatmaps and natural language "Ask the Agent" queries.
 - **Decision Support:** Provides side-by-side route comparisons with explainable justifications to eliminate the "lack of trust" bottleneck.
 
-![Architecture Diagram](./docs/Figures/architecture2.png)
+![Architecture Diagram](./docs/Figures/architecture_diagram.svg)
 
 ## 🛠️ Methods & Technologies
 
