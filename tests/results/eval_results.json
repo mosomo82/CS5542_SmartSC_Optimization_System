@@ -1,0 +1,62 @@
+{
+  "eval_date": "2026-03-29",
+  "evaluator": "Daniel Evans",
+  "test_suite": "tests/test_cpp_gate.py",
+  "description": "CPP Spatial SQL hard gate unit tests. Validates that compliance_agent.check_route_compliance() correctly issues HARD_VETO for constraint violations and PASS for compliant routes. Runs against a mocked Snowflake session — no live connection required.",
+  "environment": {
+    "python": "3.14.3",
+    "pytest": "9.0.2",
+    "platform": "win32"
+  },
+  "summary": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "pass_rate": 1.0,
+    "duration_seconds": 0.08
+  },
+  "scenarios": [
+    {
+      "id": "test_overweight_veto",
+      "description": "Vehicle (40t) exceeds bridge weight limit (30t) on Chicago–KC route",
+      "vehicle_weight_tons": 40.0,
+      "vehicle_height_m": 4.5,
+      "expected": "HARD_VETO",
+      "actual": "HARD_VETO",
+      "passed": true,
+      "violation_type": "weight",
+      "failing_bridge": "B001"
+    },
+    {
+      "id": "test_height_veto",
+      "description": "Vehicle (4.5m) exceeds bridge clearance (3.8m) on Chicago–KC route",
+      "vehicle_weight_tons": 40.0,
+      "vehicle_height_m": 4.5,
+      "expected": "HARD_VETO",
+      "actual": "HARD_VETO",
+      "passed": true,
+      "violation_type": "clearance",
+      "failing_bridge": "B002"
+    },
+    {
+      "id": "test_compliant_pass",
+      "description": "All 7 bridges within weight and clearance limits — route approved",
+      "vehicle_weight_tons": 40.0,
+      "vehicle_height_m": 4.5,
+      "expected": "PASS",
+      "actual": "PASS",
+      "passed": true,
+      "intersecting_bridges": 7
+    },
+    {
+      "id": "test_no_bridges_on_route_pass",
+      "description": "No bridges intersect the route (open road) — route approved",
+      "vehicle_weight_tons": 40.0,
+      "vehicle_height_m": 4.5,
+      "expected": "PASS",
+      "actual": "PASS",
+      "passed": true,
+      "intersecting_bridges": 0
+    }
+  ]
+}
