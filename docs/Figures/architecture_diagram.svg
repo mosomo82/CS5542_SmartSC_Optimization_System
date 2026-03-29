@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="960.0" height="619.0" viewBox="0 0 960.0 619.0">
+<defs>
+</defs>
+<rect x="0" y="0" width="960.0" height="619.0" fill="#ffffff" rx="6" />
+<defs><marker id="arr" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2563eb"/></marker></defs>
+<text x="480.0" y="28" font-size="16" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-style="normal" fill="#1e3a5f">HyperLogistics: Smart Supply Chain Optimization System</text>
+<rect x="16.0" y="34.0" width="158.0" height="292.0" fill="#e0f2fe" rx="8" stroke="#0369a1" stroke-width="1.5" stroke-dasharray="5,3" />
+<text x="24.0" y="48.0" font-size="11" text-anchor="start" font-family="sans-serif" font-weight="bold" font-style="normal" fill="#0369a1">Data Sources</text>
+<rect x="256.0" y="34.0" width="398.0" height="102.0" fill="#fef9c3" rx="8" stroke="#ca8a04" stroke-width="1.5" stroke-dasharray="5,3" />
+<text x="264.0" y="48.0" font-size="11" text-anchor="start" font-family="sans-serif" font-weight="bold" font-style="normal" fill="#ca8a04">Snowflake Infrastructure</text>
+<rect x="736.0" y="34.0" width="158.0" height="197.0" fill="#f0fdf4" rx="8" stroke="#15803d" stroke-width="1.5" stroke-dasharray="5,3" />
+<text x="744.0" y="48.0" font-size="11" text-anchor="start" font-family="sans-serif" font-weight="bold" font-style="normal" fill="#15803d">Intelligence Layer  (Lab 7)</text>
+<rect x="496.0" y="399.0" width="398.0" height="102.0" fill="#fdf4ff" rx="8" stroke="#9333ea" stroke-width="1.5" stroke-dasharray="5,3" />
+<text x="504.0" y="413.0" font-size="11" text-anchor="start" font-family="sans-serif" font-weight="bold" font-style="normal" fill="#9333ea">Domain Adaptation + Safety  (Lab 8)</text>
+<rect x="256.0" y="399.0" width="158.0" height="102.0" fill="#fff7ed" rx="8" stroke="#c2410c" stroke-width="1.5" stroke-dasharray="5,3" />
+<text x="264.0" y="413.0" font-size="11" text-anchor="start" font-family="sans-serif" font-weight="bold" font-style="normal" fill="#c2410c">Agent Reasoning  (Lab 6)</text>
+<rect x="16.0" y="399.0" width="158.0" height="102.0" fill="#e0f2fe" rx="8" stroke="#0369a1" stroke-width="1.5" stroke-dasharray="5,3" />
+<text x="24.0" y="413.0" font-size="11" text-anchor="start" font-family="sans-serif" font-weight="bold" font-style="normal" fill="#0369a1">Application  (Lab 9)</text>
+<path d="M160.0,94.0 C209.5,94.0,220.5,94.0,264.0,94.0" stroke="#2563eb" stroke-width="1.5" fill="none" marker-end="url(#arr)" />
+<path d="M160.0,189.0 C215.0,189.0,215.0,94.0,264.0,94.0" stroke="#2563eb" stroke-width="1.5" fill="none" marker-end="url(#arr)" />
+<path d="M160.0,284.0 C215.0,284.0,215.0,94.0,264.0,94.0" stroke="#2563eb" stroke-width="1.5" fill="none" marker-end="url(#arr)" />
+<path d="M400.0,94.0 C449.5,94.0,460.5,94.0,504.0,94.0" stroke="#2563eb" stroke-width="1.5" fill="none" marker-end="url(#arr)" />
+<path d="M640.0,94.0 C689.5,94.0,700.5,94.0,744.0,94.0" stroke="#2563eb" stroke-width="1.5" fill="none" marker-end="url(#arr)" />
+<path d="M640.0,94.0 C695.0,94.0,695.0,189.0,744.0,189.0" stroke="#2563eb" stroke-width="1.5" fill="none" marker-end="url(#arr)" />
+<path d="M815,122.0 C815,261.05,815,291.95,815.0,425.0" stroke="#2563eb" stroke-width="1.5" fill="none" marker-end="url(#arr)" />
+<path d="M815,217.0 C815,313.3,815,334.7,815.0,425.0" stroke="#2563eb" stroke-width="1.5" fill="none" marker-end="url(#arr)" />
+<path d="M750.0,459.0 C700.5,459.0,689.5,459.0,646.0,459.0" stroke="#2563eb" stroke-width="1.5" fill="none" marker-end="url(#arr)" />
+<text x="695.0" y="450.0" font-size="11" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#2563eb">route cleared</text>
+<path d="M510.0,459.0 C460.5,459.0,449.5,459.0,406.0,459.0" stroke="#2563eb" stroke-width="1.5" fill="none" marker-end="url(#arr)" />
+<path d="M575,122.0 C575,261.05,335,291.95,335.0,425.0" stroke="#2563eb" stroke-width="1.5" fill="none" marker-end="url(#arr)" />
+<text x="455.0" y="267.5" font-size="11" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#2563eb">tool queries</text>
+<path d="M270.0,459.0 C220.5,459.0,209.5,459.0,166.0,459.0" stroke="#2563eb" stroke-width="1.5" fill="none" marker-end="url(#arr)" />
+<rect x="30.0" y="66.0" width="130" height="56" fill="#dbeafe" rx="6" stroke="#1d4ed8" stroke-width="1.8" />
+<text x="95" y="90.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#111827">14 Trucking CSVs</text>
+<text x="95" y="105.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#6b7280">(Kaggle Logistics DB)</text>
+<rect x="30.0" y="161.0" width="130" height="56" fill="#dbeafe" rx="6" stroke="#1d4ed8" stroke-width="1.8" />
+<text x="95" y="185.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#111827">US Accidents + NOAA</text>
+<text x="95" y="200.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#6b7280">Weather Alerts</text>
+<rect x="30.0" y="256.0" width="130" height="56" fill="#dbeafe" rx="6" stroke="#1d4ed8" stroke-width="1.8" />
+<text x="95" y="280.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#111827">NBI Bridge</text>
+<text x="95" y="295.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#6b7280">Inventory</text>
+<rect x="270.0" y="66.0" width="130" height="56" fill="#f1f5f9" rx="6" stroke="#475569" stroke-width="1.8" />
+<text x="335" y="90.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#111827">Snowflake Ingestion</text>
+<text x="335" y="105.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#6b7280">COPY INTO · Snowpipe</text>
+<rect x="510.0" y="66.0" width="130" height="56" fill="#dcfce7" rx="6" stroke="#15803d" stroke-width="1.8" />
+<text x="575" y="90.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#111827">Snowflake Warehouse</text>
+<text x="575" y="105.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#6b7280">Bronze · Silver · Gold</text>
+<rect x="750.0" y="66.0" width="130" height="56" fill="#ede9fe" rx="6" stroke="#6d28d9" stroke-width="1.8" />
+<text x="815" y="90.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#111827">ReMindRAG</text>
+<text x="815" y="105.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#6b7280">KG Traversal</text>
+<rect x="750.0" y="161.0" width="130" height="56" fill="#ede9fe" rx="6" stroke="#6d28d9" stroke-width="1.8" />
+<text x="815" y="185.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#111827">SRSNet</text>
+<text x="815" y="200.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#6b7280">Risk Forecasting</text>
+<rect x="750.0" y="431.0" width="130" height="56" fill="#fef3c7" rx="6" stroke="#d97706" stroke-width="1.8" />
+<text x="815" y="455.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#111827">CPP: Spatial SQL</text>
+<text x="815" y="470.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#6b7280">Hard Constraint Gate</text>
+<rect x="510.0" y="431.0" width="130" height="56" fill="#ede9fe" rx="6" stroke="#6d28d9" stroke-width="1.8" />
+<text x="575" y="455.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#111827">Phi-2 + QLoRA</text>
+<text x="575" y="470.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#6b7280">Safety Validation Agent</text>
+<rect x="270.0" y="431.0" width="130" height="56" fill="#ede9fe" rx="6" stroke="#6d28d9" stroke-width="1.8" />
+<text x="335" y="455.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#111827">Gemini 2.5 Flash</text>
+<text x="335" y="470.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#6b7280">AI Agent · 9 Tools</text>
+<rect x="30.0" y="431.0" width="130" height="56" fill="#dcfce7" rx="6" stroke="#15803d" stroke-width="1.8" />
+<text x="95" y="463.0" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#111827">Streamlit Dashboard</text>
+<rect x="10" y="577.5" width="940.0" height="26" fill="#f8fafc" rx="4" />
+<rect x="24" y="584.5" width="14" height="12" fill="#dbeafe" rx="2" stroke="#1d4ed8" stroke-width="1.2" />
+<text x="44" y="594.5" font-size="11" text-anchor="start" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#374151">Data source</text>
+<rect x="130.0" y="584.5" width="14" height="12" fill="#f1f5f9" rx="2" stroke="#475569" stroke-width="1.2" />
+<text x="150.0" y="594.5" font-size="11" text-anchor="start" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#374151">Transform / process</text>
+<rect x="284.0" y="584.5" width="14" height="12" fill="#ede9fe" rx="2" stroke="#6d28d9" stroke-width="1.2" />
+<text x="304.0" y="594.5" font-size="11" text-anchor="start" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#374151">Model / AI</text>
+<rect x="384.0" y="584.5" width="14" height="12" fill="#dcfce7" rx="2" stroke="#15803d" stroke-width="1.2" />
+<text x="404.0" y="594.5" font-size="11" text-anchor="start" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#374151">Storage / output</text>
+<rect x="520.0" y="584.5" width="14" height="12" fill="#fef3c7" rx="2" stroke="#d97706" stroke-width="1.2" />
+<text x="540.0" y="594.5" font-size="11" text-anchor="start" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#374151">Decision</text>
+</svg>
