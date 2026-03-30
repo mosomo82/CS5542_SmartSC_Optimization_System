@@ -55,6 +55,13 @@ snowflake_credentials.json
 data/
 reproducibility/golden_dataset/raw/
 
+# --- Evaluation Results (tracked) ---
+!tests/results/eval_results.json
+
+# --- Domain Adaptation (tracked) ---
+!src/domain_adaptation/data/instruction_dataset.json
+adapter_model.safetensors
+
 # --- Jupyter & Development ---
 .ipynb_checkpoints
 .vscode/

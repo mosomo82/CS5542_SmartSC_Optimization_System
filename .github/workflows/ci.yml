@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        # Full requirements.txt includes torch/snowflake/ray which are too heavy
+        # for CI. Tests only require pytest; Snowflake-dependent tests auto-skip
+        # when credentials are absent.
+        run: pip install pytest python-dotenv
+
+      - name: Run CPP gate invariant tests
+        run: pytest tests/test_cpp_gate.py -v
+
+      - name: Run pipeline smoke tests
+        run: pytest tests/test_pipeline.py -v

@@ -1,0 +1,161 @@
+{
+  "eval_date": "2026-03-29",
+  "mode": "mock",
+  "dataset": "C:\\Users\\danie\\Documents\\CS5542\\project\\tests\\data\\evaluation_queries.json",
+  "summary": {
+    "total": 12,
+    "passed": 12,
+    "failed": 0,
+    "pass_rate": 1.0,
+    "avg_latency_ms": 0.155
+  },
+  "by_category": {
+    "weather": {
+      "passed": 3,
+      "total": 3,
+      "pass_rate": 1.0
+    },
+    "accident": {
+      "passed": 2,
+      "total": 2,
+      "pass_rate": 1.0
+    },
+    "bridge_weight": {
+      "passed": 3,
+      "total": 3,
+      "pass_rate": 1.0
+    },
+    "bridge_height": {
+      "passed": 2,
+      "total": 2,
+      "pass_rate": 1.0
+    },
+    "monotonicity": {
+      "passed": 2,
+      "total": 2,
+      "pass_rate": 1.0
+    }
+  },
+  "scenarios": [
+    {
+      "id": "Q01",
+      "category": "weather",
+      "description": "NOAA severe icing on I-80; alternate I-70 is clear and bridge-compliant",
+      "expected_verdict": "PASS",
+      "actual_verdict": "PASS",
+      "passed": true,
+      "latency_ms": 0.136,
+      "veto_reason": ""
+    },
+    {
+      "id": "Q02",
+      "category": "weather",
+      "description": "Flash flood on I-55 southbound; I-57 alternate is clear and compliant",
+      "expected_verdict": "PASS",
+      "actual_verdict": "PASS",
+      "passed": true,
+      "latency_ms": 0.137,
+      "veto_reason": ""
+    },
+    {
+      "id": "Q03",
+      "category": "weather",
+      "description": "High wind advisory on mountain pass; low-altitude alternate is compliant",
+      "expected_verdict": "PASS",
+      "actual_verdict": "PASS",
+      "passed": true,
+      "latency_ms": 0.124,
+      "veto_reason": ""
+    },
+    {
+      "id": "Q04",
+      "category": "accident",
+      "description": "Severity-4 pileup on I-90; alternate US-20 is clear, all bridges compliant",
+      "expected_verdict": "PASS",
+      "actual_verdict": "PASS",
+      "passed": true,
+      "latency_ms": 0.116,
+      "veto_reason": ""
+    },
+    {
+      "id": "Q05",
+      "category": "accident",
+      "description": "Multi-vehicle accident on I-35; I-135 alternate is compliant",
+      "expected_verdict": "PASS",
+      "actual_verdict": "PASS",
+      "passed": true,
+      "latency_ms": 0.124,
+      "veto_reason": ""
+    },
+    {
+      "id": "Q06",
+      "category": "bridge_weight",
+      "description": "Heavy haul (45t) exceeds bridge load limit (35t) on proposed alternate",
+      "expected_verdict": "HARD_VETO",
+      "actual_verdict": "HARD_VETO",
+      "passed": true,
+      "latency_ms": 0.197,
+      "veto_reason": "HARD VETO \u2014 route blocked: weight limit exceeded on bridge B_EVAL_W (limit 33.8 t < vehicle 45.0 t). (1 non-compliant bridge(s) of 1 intersecting the route.)"
+    },
+    {
+      "id": "Q07",
+      "category": "bridge_weight",
+      "description": "Standard heavy haul (40t) exceeds tonnage limit (30t) on I-57 bridge",
+      "expected_verdict": "HARD_VETO",
+      "actual_verdict": "HARD_VETO",
+      "passed": true,
+      "latency_ms": 0.176,
+      "veto_reason": "HARD VETO \u2014 route blocked: weight limit exceeded on bridge B_EVAL_W (limit 30.0 t < vehicle 40.0 t). (1 non-compliant bridge(s) of 1 intersecting the route.)"
+    },
+    {
+      "id": "Q08",
+      "category": "bridge_weight",
+      "description": "Overweight shipment (50t) on alternate with 38t bridge",
+      "expected_verdict": "HARD_VETO",
+      "actual_verdict": "HARD_VETO",
+      "passed": true,
+      "latency_ms": 0.17,
+      "veto_reason": "HARD VETO \u2014 route blocked: weight limit exceeded on bridge B_EVAL_W (limit 37.5 t < vehicle 50.0 t). (1 non-compliant bridge(s) of 1 intersecting the route.)"
+    },
+    {
+      "id": "Q09",
+      "category": "bridge_height",
+      "description": "Oversized load (4.8m) cannot clear bridge on alternate route (4.1m clearance)",
+      "expected_verdict": "HARD_VETO",
+      "actual_verdict": "HARD_VETO",
+      "passed": true,
+      "latency_ms": 0.208,
+      "veto_reason": "HARD VETO \u2014 route blocked: height clearance insufficient on bridge B_EVAL_H (clearance 4.10 m < vehicle 4.80 m). (1 non-compliant bridge(s) of 1 intersecting the route.)"
+    },
+    {
+      "id": "Q10",
+      "category": "bridge_height",
+      "description": "Permitted oversized (5.0m) hits low bridge (4.3m) on alternate",
+      "expected_verdict": "HARD_VETO",
+      "actual_verdict": "HARD_VETO",
+      "passed": true,
+      "latency_ms": 0.174,
+      "veto_reason": "HARD VETO \u2014 route blocked: height clearance insufficient on bridge B_EVAL_H (clearance 4.30 m < vehicle 5.00 m). (1 non-compliant bridge(s) of 1 intersecting the route.)"
+    },
+    {
+      "id": "Q13",
+      "category": "monotonicity",
+      "description": "Monotonicity baseline \u2014 weather disruption only, no bridge constraint on alternate",
+      "expected_verdict": "PASS",
+      "actual_verdict": "PASS",
+      "passed": true,
+      "latency_ms": 0.129,
+      "veto_reason": ""
+    },
+    {
+      "id": "Q14",
+      "category": "monotonicity",
+      "description": "Monotonicity flip \u2014 same route + bridge weight violation must flip PASS to VETO",
+      "expected_verdict": "HARD_VETO",
+      "actual_verdict": "HARD_VETO",
+      "passed": true,
+      "latency_ms": 0.174,
+      "veto_reason": "HARD VETO \u2014 route blocked: weight limit exceeded on bridge B_EVAL_W (limit 30.0 t < vehicle 40.0 t). (1 non-compliant bridge(s) of 1 intersecting the route.)"
+    }
+  ]
+}
