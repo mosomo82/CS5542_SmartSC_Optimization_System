@@ -60,7 +60,7 @@
 <text x="575" y="455.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#111827">Phi-2 + QLoRA</text>
 <text x="575" y="470.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#6b7280">Safety Validation Agent</text>
 <rect x="270.0" y="431.0" width="130" height="56" fill="#ede9fe" rx="6" stroke="#6d28d9" stroke-width="1.8" />
-<text x="335" y="455.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#111827">Gemini 2.5 Flash</text>
+<text x="335" y="455.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#111827">Snowflake Cortex</text>
 <text x="335" y="470.5" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#6b7280">AI Agent · 9 Tools</text>
 <rect x="30.0" y="431.0" width="130" height="56" fill="#dcfce7" rx="6" stroke="#15803d" stroke-width="1.8" />
 <text x="95" y="463.0" font-size="12" text-anchor="middle" font-family="sans-serif" font-weight="normal" font-style="normal" fill="#111827">Streamlit Dashboard</text>

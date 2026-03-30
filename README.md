@@ -61,7 +61,7 @@ The **HyperLogistics** engine utilizes a Snowflake-native ecosystem to bridge th
 | **Development Environment** | **Google Colab**             | Serves as the primary client-side environment for orchestrating Snowpark pipelines.                        |
 | **Data Engine**             | **Snowflake**                | Core platform for ingestion (Snowpipe), storage (Medallion Architecture), and processing (Snowpark).       |
 | **Graph Intelligence**      | **NetworkX on SNowpark**     | Executes hypergraph logic natively inside Snowflake to model complex supply chain ripple effects.          |
-| **Inference Engine**        | **Snowflake Cortex**         | Leverages Google Gemini for secure LLM reasoning directly beside the data.                                 |
+| **Inference Engine**        | **Snowflake Cortex**         | Leverages Llama 3 for secure ReAct LLM reasoning directly beside the data.                                 |
 | **RAG Architecture**        | **ReMindRAG**                | Uses LLM-guided knowledge graph traversal to provide low-cost, explainable justifications for rerouting.   |
 | **Forecasting**             | **SRSNet**                   | Implements "Selective Representation" to patch time-series data for weather and accident propagation.      |
 | **Safety Protocol**         | **Consensus Planning (CPP)** | A multi-agent system where Context, Efficiency, and Compliance agents must negotiate a final route.        |
@@ -206,7 +206,7 @@ Preprocessing scripts in `src/preprocessing/` transform raw Bronze-layer data in
 
 ### Embedding Models Used
 
-- **Primary**: Snowflake Cortex (Google Gemini) for 768D embeddings
+- **Primary**: Snowflake Cortex for 768D embeddings
 - **Fallback**: Sentence Transformers for comparison
 
 ### Example Retrieval Outputs
@@ -293,32 +293,41 @@ Snowflake as unified platform: data storage, ML inference, and Streamlit hosting
 
 ---
 
-## 🔁 Reproducibility Plan
+## 🔁 Reproducibility Documentation & GitHub Repository
 
-### Environment Configuration
+**Repository Link:** [https://github.com/mosomo82/CS5542_SmartSC_Optimization_System](https://github.com/mosomo82/CS5542_SmartSC_Optimization_System)
 
-- Python 3.10+, venv, dependencies in `requirements.txt`
-- Snowflake Enterprise on AWS
+This repository contains the full integrated Phase 3 system. Another team can reproduce this system end-to-end by following these guidelines.
 
-### Model/Dataset Versioning
+### 1. Complete Repository Structure Included
+The codebase explicitly contains all components required by the integration rubric:
+* **Ingestion and preprocessing scripts:** `src/ingestion/` and `src/preprocessing/`
+* **Retrieval modules:** `src/agents/context_agent.py` (ReMindRAG)
+* **Agent implementation and tools:** `src/agents/dashboard_agent.py` (9-Tool Cortex ReAct Agent) and `src/agents/cpp_agent.py`
+* **Domain adaptation/model improvement code:** `notebooks/` (Phi-2 QLoRA PEFT and SRSNet training algorithms)
+* **Application interface code:** `src/app/dashboard.py` (Streamlit unified dashboard)
+* **Snowflake integration scripts:** `src/sql/` schemas and `src/utils/snowflake_conn.py`
+* **Evaluation scripts:** `tests/evaluate_system.py` (50-scenario golden dataset & Metamorphic tests)
+* **System architecture diagram:** `docs/Figures/architecture_diagram.svg` and `ARCHITECTURE.md`
+* **README with setup instructions:** Detailed below in Quick Start.
 
-- SRSNet/ReMindRAG pinned to NeurIPS versions
-- Datasets versioned with checksums
+### 2. Environment Configuration & Dependency Management
+- **Python Version:** Python 3.10+ is strictly required. Create an isolated virtual environment (`python -m venv venv`) before installation.
+- **Dependency Management:** All required packages are strictly pinned in `requirements.txt`. Install via `pip install -r requirements.txt`. Core dependencies include `snowflake-snowpark-python`, `langchain-core`, `streamlit`, and `pandas`.
+- **Snowflake Roles:** You must possess `ACCOUNTADMIN` or equivalent privileges in your Snowflake environment to create the necessary external stages, security integrations, and Cortex capabilities. Copy `.env.template` to `.env` and fill in your Snowflake credentials.
 
-### Random Seeds and Configs
+### 3. Dataset Requirements
+To fully hydrate the system, three raw external datasets must be loaded into the Bronze layer:
+1. **US Accidents (Kaggle)**: 7.7M rows of national traffic incidents.
+2. **NOAA GSOD**: Multi-terabyte weather station data (sourced directly from the AWS Open Data Registry).
+3. **NBI Bridges**: 600K+ US DOT bridge records.
+*(Note: Synthetic dummy configurations of the logistics dataset are automatically created for basic dry-runs if the massive Kaggle files are not downloaded).*
 
-- Seed: 42 in `src/config/config.yaml`
-- Hyperparameters and paths configured
-
-### Run Instructions
-
-1. Clone repo, setup venv
-2. Configure `.env`
-3. Run ingestion scripts (or setup automated S3 loading)
-4. Train models, deploy app
-5. Evaluate with `tests/evaluate_system.py`
-
-See `docs/detailed_documentation.md` and `docs/s3_automation_guide.md` for full details.
+### 4. Setup and Run Instructions
+1. **Clone the repository:** Download the repository to your local machine.
+2. **Execute Snowflake DDL:** Open a Snowflake worksheet and execute the SQL scripts in `src/sql/` sequentially (`00_create_database.sql`, `01_setup_noaa.sql`, `02_setup_s3_automation.sql`) to mint the Medallion architecture.
+3. **Execute the Python Ingestion Pipeline:** Run `python src/run_pipeline.py`. This script acts as the master orchestrator, triggering Snowpipe, uploading files, and performing the Silver aggregation preprocessing automatically.
+4. **Boot the Integrated Interface:** Run `streamlit run src/app/dashboard.py`. The system will launch locally, allowing you to interface seamlessly with the Snowflake Cortex 9-Tool Agent and monitor live routing visualizations.
 
 ---
 
@@ -339,9 +348,9 @@ This repository now includes:
 
 ---
 
-## 🚀 Lab 9 / Phase 2 Integration (March 2026)
+## 🚀 Lab 9 / Phase 3 Integration (March 2026)
 
-The Phase 2 prototype integrates all research components from Labs 6, 7, and 8 into a unified system.
+The Phase 3 prototype integrates all research components from Labs 6, 7, and  8 into a unified system.
 
 ### **Key Technical Documentation**
 

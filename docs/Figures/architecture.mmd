@@ -14,7 +14,7 @@ flowchart LR
         Ingest["Ingestion Layer<br>(Snowpipe / Internal Stages)"]
         Storage[("Medallion Storage<br>(Bronze / Silver / Gold)")]
         Graph[("Knowledge Layer<br>(NetworkX HyperGraph)")]
-        Cortex["Cortex AI Layer<br>(Gemini Pro RAG)"]
+        Cortex["Cortex AI Layer<br>(Llama 3 70B RAG)"]
         Forecasting["SRSNet Engine<br>(Time-Series Forecasting)"]
         Spatial["Safety Veto Layer<br>(Spatial SQL)"]
   end

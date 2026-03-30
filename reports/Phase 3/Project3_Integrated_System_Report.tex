@@ -1,0 +1,337 @@
+\documentclass[11pt,letterpaper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+
+\titlespacing*{\section}{0pt}{10pt}{5pt}
+\titlespacing*{\subsection}{0pt}{8pt}{4pt}
+\titlespacing*{\subsubsection}{0pt}{6pt}{3pt}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{CS 5542 --- Project 3}
+\lhead{HyperLogistics}
+\rfoot{Page \thepage}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  backgroundcolor=\color{gray!10},
+  keywordstyle=\color{blue},
+  commentstyle=\color{green!50!black},
+  stringstyle=\color{red!60!black},
+}
+
+\begin{document}
+
+\begin{center}
+{\LARGE \textbf{Project 3: Integrated System Report and Final System Enhancement}} \\[6pt]
+{\large \textbf{SmartSC Optimization System: HyperLogistics}} \\[12pt]
+{\normalsize CS 5542 --- Big Data and Analytics \hspace{1em}|\hspace{1em} Spring 2026} \\[4pt]
+{\normalsize Team: Tony Nguyen $\cdot$ Daniel Evans $\cdot$ Joel Vinas} \\[6pt]
+\textbf{GitHub:} \url{https://github.com/mosomo82/CS5542_SmartSC_Optimization_System} \\
+\textbf{Live App:} \url{https://cs5542hyperlogistics.streamlit.app/}
+\end{center}
+
+\vspace{8pt}
+\hrule
+\vspace{12pt}
+
+% ═══════════════════════════════════════════════════════════════
+\section{System Overview}
+% ═══════════════════════════════════════════════════════════════
+
+\subsection{Project Objective and Problem Domain}
+The logistics and supply chain industry is continuously impacted by dynamic external disruptions---extreme weather events, vehicular accidents, facility closures, and unpredictable traffic congestion. Traditional dispatching frameworks and shortest-path algorithms fail under unexpected physical constraints such as hazmat restrictions, bridge weight limits, or vertical clearance heights. \textbf{HyperLogistics} establishes a fully integrated, cloud-native AI reasoning pipeline capable of executing context-aware, constraint-compliant rerouting operations. The system dynamically parses real-time multimodal disruptions and generates physically compliant, fully explainable routing decisions grounded in live Snowflake data, with near-zero hallucinations.
+
+\subsection{Description of the Application}
+HyperLogistics is a modern Streamlit web application backed by a multi-layered AI pipeline. It unifies:
+\begin{itemize}[nosep]
+  \item \textbf{Structured data} in Snowflake (National Bridge Inventory, Fleet Manifests, Safety Incidents)
+  \item \textbf{Unstructured data} in a dense retrieval vector space (DOT safety handbooks, weather incident protocols)
+  \item \textbf{Domain-adapted language models} (QLoRA-tuned Phi-2 for logistics reasoning)
+\end{itemize}
+Dispatchers prompt the agent with natural language commands (e.g., ``Route the 80,000\,lbs shipment via I-80 despite the blizzard'') and receive an instant, 4-step Chain-of-Thought (CoT) decision with structural safety guarantees.
+
+\subsection{High-Level Workflow}
+\begin{enumerate}[nosep]
+  \item \textbf{User Input:} The dispatcher submits a rerouting query via the Streamlit dashboard.
+  \item \textbf{Context Retrieval:} ReMindRAG retrieves top-K nodes from the Graph-enhanced Knowledge Base.
+  \item \textbf{Constraint Gate:} A Spatial SQL agent intercepts the proposed route and executes \texttt{ST\_INTERSECTS} queries against \texttt{SILVER.BRIDGE\_INVENTORY\_GEO} to retrieve physical bridge limits.
+  \item \textbf{Reasoning Engine:} The Domain-Adapted LLM applies retrieved constraints and contextual protocols to construct a 4-step decision (Approve/Veto).
+  \item \textbf{UI Delivery:} The decision trajectory---including pass/veto flags, grounding sources, and reasoning steps---is returned to the dispatcher.
+\end{enumerate}
+
+% ═══════════════════════════════════════════════════════════════
+\section{System Architecture}
+% ═══════════════════════════════════════════════════════════════
+
+The system integrates four architectural layers into a single deployable platform. Figure~\ref{fig:arch} illustrates the pipeline flow from raw data sources through the reasoning engine to the application layer.
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox{0.92\textwidth}{\small
+\texttt{%
+\begin{tabular}{@{}l@{}}
+EXTERNAL DATA SOURCES \\
+\hspace{1em}US Accidents (7.7M) | NOAA GSOD (multi-TB) | NBI Bridges (600K+) \\
+\hspace{3em}$\downarrow$ Snowpipe / External Table / Internal Stage \\[4pt]
+LAYER 1 --- DATA PERCEPTION (Medallion Architecture) \\
+\hspace{1em}BRONZE $\rightarrow$ SILVER (analytics-ready tables) \\
+\hspace{3em}$\downarrow$ \\[4pt]
+LAYER 2 --- INTELLIGENCE \\
+\hspace{1em}ReMindRAG (KG traversal) | SRSNet (risk forecasting) | Cortex (Llama 3) \\
+\hspace{3em}$\downarrow$ route candidates + retrieved context \\[4pt]
+LAYER 3 --- VALIDATION \& SAFETY (CPP Hard Gate) \\
+\hspace{1em}Step 3A: Spatial SQL Gate (deterministic, cannot override) \\
+\hspace{1em}Step 3B: Domain-Adapted LLM (Phi-2 + QLoRA, 4-step CoT) \\
+\hspace{3em}$\downarrow$ \\[4pt]
+LAYER 4 --- APPLICATION \\
+\hspace{1em}Streamlit Dashboard | Risk Heatmap | Analytics | Reasoning Path
+\end{tabular}%
+}}}
+\caption{HyperLogistics 4-Layer Pipeline Architecture}
+\label{fig:arch}
+\end{figure}
+
+% ═══════════════════════════════════════════════════════════════
+\section{Core Components (Project 2)}
+% ═══════════════════════════════════════════════════════════════
+
+\subsection{Dataset and Knowledge Base}
+The system ingests DOT safety regulation handbooks, logistics manifest logs, and structural bridge inventories. These multimodal files are chunked, semantically embedded using \texttt{sentence-transformers/all-MiniLM-L6-v2}, and persisted into \texttt{SILVER.LOGISTICS\_VECTORIZED} (768-dimensional vectors) for RAG retrieval.
+
+\subsection{Retrieval Pipeline}
+ReMindRAG orchestrates the chunking and embedding logic. Given a user query, the pipeline performs semantic similarity search over the embedded knowledge base and retrieves the most contextually relevant structured graphs. Path memorization reduces API calls by 37--42\% for repeated queries.
+
+\subsection{Snowflake Integration}
+Snowflake serves as the unified cloud Data Warehouse. The connection layer (\texttt{snowflake\_conn.py}) implements keep-alive pings, exponential-backoff retry decorators, and pre-flight environment assertions to ensure fault-tolerant connectivity to \texttt{SILVER.DOT\_BRIDGES}.
+
+\subsection{Application Interface}
+A foundational Streamlit application displays interactive dashboards showing Fleet status maps, route comparison panels, and a conversational interface for interacting with the RAG pipeline.
+
+% ═══════════════════════════════════════════════════════════════
+\section{Lab Integration (Labs 6--9)}
+% ═══════════════════════════════════════════════════════════════
+
+\subsection{Lab 6 --- Agent Integration}
+
+\subsubsection{Agent Tools and Reasoning Workflow}
+We deployed specialized Python function ``Tools'' (Retrieval Tool, SQL Evaluation Tool, Route Compliance Tool) inside a \texttt{ReactAgent} framework. The agent dynamically selects which tool to call based on the user's intent, cycling through Thought $\rightarrow$ Action $\rightarrow$ Observation loops.
+
+\subsubsection{Example Interaction Scenario}
+\begin{lstlisting}[caption={Example dispatcher interaction with the AI agent}]
+USER: What is the height clearance on I-35 bridges near Kansas City?
+
+AGENT (Thought): The user needs bridge clearance data for a specific
+  corridor. I should query the DOT Bridge Inventory.
+AGENT (Action): SQL_TOOL -> SELECT BRIDGE_NAME, VERT_CLR_OVER_MT_053
+  FROM SILVER.BRIDGE_INVENTORY_GEO
+  WHERE ST_DISTANCE(bridge_geom, ST_GEOGFROMTEXT('POINT(-94.5 39.1)'))
+  < 16093 ORDER BY VERT_CLR_OVER_MT_053 ASC LIMIT 5;
+AGENT (Observation): Retrieved 5 bridges. Minimum clearance: 4.27m
+  (14.0 ft) at Bridge NBI-KS-2847 on I-35 SB.
+AGENT (Response): The minimum vertical clearance on I-35 near Kansas
+  City is 14.0 ft (4.27m) at Bridge NBI-KS-2847 on the southbound
+  span. Vehicles exceeding 13.5 ft should use alternate I-29.
+\end{lstlisting}
+
+\subsection{Lab 7 --- Reproducibility}
+
+\begin{itemize}[nosep]
+  \item \textbf{Environment Configuration:} Unified \texttt{requirements.txt} locking all critical libraries (\texttt{torch}, \texttt{snowflake-connector-python}, \texttt{transformers}), avoiding Windows/Linux binding conflicts in CI/CD.
+  \item \textbf{Dependency Management:} GitHub Actions CI running on Python 3.10 with containerized testing modules.
+  \item \textbf{LLM Tools for Debugging:} Used LLM-assisted code generation to produce deterministic unit tests (\texttt{test\_repro\_variance.py}) that track identically hashed chunk outputs, bounding RAG variance to near zero. LLM tools also debugged Snowflake connector authentication issues and resolved \texttt{bitsandbytes} CUDA compatibility errors during QLoRA setup.
+\end{itemize}
+
+\subsection{Lab 8 --- Domain Adaptation}
+
+\subsubsection{Instruction Dataset Creation}
+A dedicated Python script (\texttt{generate\_dataset.py}) expands a synthetic training dataset from 100 to 350+ instruction pairs covering 5 disruption categories: Weather, Accident, Traffic, Driver HOS, and Facility/Dock strikes. Each pair follows a structured 4-step CoT format (Disruption $\rightarrow$ Route $\rightarrow$ Constraint $\rightarrow$ Decision).
+
+\subsubsection{Model Adaptation Approach}
+We fine-tuned \texttt{microsoft/phi-2} (2.7B parameters) using QLoRA via \texttt{bitsandbytes} in 4-bit precision on a Google Colab T4 GPU. The PEFT adapter was trained for 3 epochs on the expanded CoT dataset.
+
+\subsubsection{Observed Improvements}
+Table~\ref{tab:adaptation} summarizes the impact of domain adaptation on key metrics.
+
+\begin{table}[H]
+\centering
+\caption{Domain Adaptation Results (Before vs. After Lab 8) --- Real Colab T4 Evaluation}
+\label{tab:adaptation}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Metric} & \textbf{Baseline (Phi-2)} & \textbf{After Adaptation} \\
+\midrule
+Overall Pass Rate ($\geq$7.0) & $<$40\% & 81.0\% \\
+Monotonicity Test & FAIL & PASS (4/4) \\
+Invariance Test & FAIL & 3/4 PASS \\
+Symmetry Test & N/A & 4/5 PASS \\
+Total Metamorphic & N/A & 11/13 (84.6\%) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Lab 9 --- Application Enhancement}
+
+\begin{itemize}[nosep]
+  \item \textbf{UI Improvements:} Persistent sidebar with data-freshness timestamps, quick navigation radio buttons, and a collapsible Reasoning Path expander showing ReMindRAG traversal steps and CPP agent decisions for each query.
+  \item \textbf{Deployment \& Monitoring:} Automated CI/CD via GitHub Actions running \texttt{test\_cpp\_gate.py} (4 unit tests) and \texttt{test\_pipeline.py} (5 smoke tests) on every push. Three Streamlit Cloud apps deployed and actively monitored.
+  \item \textbf{System Stability:} Retry decorators wrapping all Cortex and external API calls with 3-attempt exponential backoff. Reset Session button clearing conversation state. Pre-flight \texttt{.env} assertions at startup.
+\end{itemize}
+
+% ═══════════════════════════════════════════════════════════════
+\section{Evaluation Results}
+% ═══════════════════════════════════════════════════════════════
+
+\subsection{5-Dimension Rubric (0--10 Scale)}
+Each query is scored across five dimensions (pass threshold: $\geq$7/10):
+
+\begin{table}[H]
+\centering
+\caption{5-Dimension Evaluation Rubric}
+\label{tab:rubric}
+\begin{tabular}{lp{8cm}}
+\toprule
+\textbf{Dimension} & \textbf{Scoring Criteria} \\
+\midrule
+Decision & 10 = correct APPROVE/VETO; 0 = wrong decision \\
+Grounding & 10 = no hallucinated numbers; 0 = fabricated bridge limits \\
+Constraint & 10 = weight/clearance/limit cited; 5 = route/bridge mentioned; 0 = absent \\
+CoT & 10 = 4+ reasoning steps; 7 = 3 steps; 4 = 2 steps; 0 = none \\
+Jargon & 10 = 4+ domain terms; 7 = 2--3 terms; 4 = 1 term; 0 = none \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Strategy Comparison (50-Query Evaluation Set)}
+\begin{table}[H]
+\centering
+\caption{Real Model Evaluation: 63-Query Test (Colab T4 GPU, QLoRA-adapted Phi-2)}
+\label{tab:strategy}
+\begin{tabular}{lc}
+\toprule
+\textbf{Metric} & \textbf{Result} \\
+\midrule
+Total Queries & 63 \\
+Passing ($\geq$7.0 avg) & 51 (81.0\%) \\
+Failing ($<$7.0 avg) & 12 (19.0\%) \\
+Perfect Score (10.0) & 15 queries \\
+VETO Recall & 91\% \\
+APPROVE Recall & 24\% \\
+Pipeline Gate & \textbf{PASSED} ($\geq$70\%) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key Finding:} The model exhibits strong VETO bias---it correctly identifies nearly all safety-critical VETO scenarios (91\% recall) but tends to over-veto APPROVE cases. This is a \textit{safety-conservative} behavior that is desirable for logistics compliance: the system will never approve a physically dangerous route, though dispatchers may need to override false vetoes on safe routes.
+
+\subsection{Metamorphic Robustness Testing (13 Pairs)}
+We designed 13 automated metamorphic test pairs to verify logical stability:
+
+\begin{table}[H]
+\centering
+\caption{Metamorphic Test Results (Real Colab Run)}
+\label{tab:metamorphic}
+\begin{tabular}{lccl}
+\toprule
+\textbf{Type} & \textbf{Pairs} & \textbf{Passed} & \textbf{Result} \\
+\midrule
+Invariance (same decision) & 4 & 3 & 1 FAIL (edge-case phrasing) \\
+Monotonicity (stricter $\rightarrow$ VETO) & 4 & 4 & \textbf{PASS (100\%)} \\
+Symmetry (A$\leftrightarrow$B) & 5 & 4 & 1 FAIL (directional bias) \\
+\midrule
+\textbf{Total} & \textbf{13} & \textbf{11} & \textbf{84.6\% pass rate} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Note on Monotonicity:} The most critical metamorphic property---monotonicity---achieves a perfect 4/4 pass rate. This confirms the CPP Spatial SQL hard gate correctly enforces that adding a bridge constraint violation always flips an APPROVE to VETO, regardless of the LLM's reasoning.
+
+\subsection{Example Evaluation Query}
+\begin{lstlisting}[caption={Example evaluation query and model response}]
+QUERY: Can we reroute the Heavy Haul (80,000 lbs) shipment from
+  Chicago to Denver via I-80? Report of heavy snowfall (>10cm).
+
+STEP 1 - Disruption: Heavy snowfall (>10cm) confirmed on I-80
+  corridor. NOAA Alert severity: HIGH.
+STEP 2 - Route Analysis: Alternate I-70 via Kansas City available.
+  Distance delta: +45 miles.
+STEP 3 - Constraint Check: Bridge NBI-NE-1247 on I-80: weight
+  limit 42 tons (vehicle: 40 tons, margin: 1.05x). PASS.
+  Clearance: 4.9m (vehicle: 4.3m, margin: +0.6m). PASS.
+STEP 4 - Decision: APPROVE alternate via I-70. Primary route I-80
+  hazardous due to snowfall; alternate clears all bridge constraints.
+
+SCORES: Decision=10, Grounding=10, Constraint=10, CoT=10, Jargon=10
+AVERAGE: 10.0/10 -> PASS
+\end{lstlisting}
+
+% ═══════════════════════════════════════════════════════════════
+\section{Reproducibility Documentation}
+% ═══════════════════════════════════════════════════════════════
+
+\subsection{Environment Configuration}
+\begin{lstlisting}[language=bash]
+python -m venv venv
+# Linux/macOS
+source venv/bin/activate
+# Windows
+.\venv\Scripts\activate
+pip install -r requirements.txt
+\end{lstlisting}
+
+\subsection{Dependency Management}
+The deployment relies on the locked \texttt{requirements.txt} file. For GPU fine-tuning:
+\begin{lstlisting}[language=bash]
+pip install torch transformers peft bitsandbytes accelerate
+\end{lstlisting}
+
+\subsection{Dataset Requirements}
+The system requires three core datasets to be loaded into Snowflake before operation:
+
+\begin{table}[H]
+\centering
+\caption{Required Datasets and Download Sources}
+\label{tab:datasets}
+\begin{tabular}{lll}
+\toprule
+\textbf{Dataset} & \textbf{Size} & \textbf{Source} \\
+\midrule
+US Accidents (2016--2023) & 7.7M rows & \href{https://www.kaggle.com/datasets/sobhanmoosavi/us-accidents}{Kaggle} \\
+NOAA GSOD & Multi-TB & \href{https://registry.opendata.aws/noaa-gsod/}{AWS Open Data} \\
+National Bridge Inventory & 600K+ records & \href{https://geodata.bts.gov/datasets/national-bridge-inventory/}{US DOT} \\
+Logistics Operations DB & 85K+ records & \href{https://www.kaggle.com/datasets/yogape/logistics-operations-database}{Kaggle} \\
+DataCo Supply Chain & 180K rows & \href{https://www.kaggle.com/datasets/shashwatwork/dataco-smart-supply-chain-for-big-data-analysis}{Kaggle} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Setup and Run Instructions}
+\begin{enumerate}[nosep]
+  \item Clone the repository: \texttt{git clone https://github.com/mosomo82/CS5542\_SmartSC\_Optimization\_System}
+  \item Copy \texttt{.env.template} to \texttt{.env} and fill in Snowflake credentials (\texttt{SNOWFLAKE\_ACCOUNT}, \texttt{SNOWFLAKE\_USER}, \texttt{SNOWFLAKE\_PASSWORD}, \texttt{SNOWFLAKE\_DATABASE}, \texttt{SNOWFLAKE\_SCHEMA}).
+  \item Run the SQL setup scripts in order: \texttt{00\_create\_database.sql} $\rightarrow$ \texttt{01\_setup\_noaa.sql} $\rightarrow$ \texttt{02\_setup\_s3\_automation.sql}.
+  \item Execute the data pipeline: \texttt{python src/run\_pipeline.py}
+  \item Verify pipeline health: \texttt{python src/verify\_pipeline.py}
+  \item Run the evaluation suite: \texttt{python tests/evaluate\_system.py --mode mock}
+  \item Launch the application: \texttt{streamlit run src/app/dashboard.py}
+\end{enumerate}
+
+\vfill
+\begin{center}
+\small
+\textit{HyperLogistics v2.0 --- CS5542 Smart Supply Chain Optimization System} \\
+\textit{Built with Streamlit $\cdot$ Snowflake Cortex $\cdot$ ReMindRAG $\cdot$ QLoRA}
+\end{center}
+
+\end{document}

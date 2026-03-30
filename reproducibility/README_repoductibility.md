@@ -223,7 +223,7 @@ This dataset trains our SRSNet model to predict "Delay Propensity."
 
 ### 3.1 Deploy Cortex Functions (Week 2)
 
-This registers the Python UDFs that wrap the **Google Gemini** models.
+This registers the Python UDFs that wrap the **Snowflake Cortex** models.
 
 ```bash
 python src/cortex/deploy_agents.py

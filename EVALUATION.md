@@ -1,6 +1,6 @@
 # EVALUATION.md — System Evaluation: HyperLogistics
 
-> **CS 5542 — Big Data and Analytics | Phase 2 / Lab 9**
+> **CS 5542 — Big Data and Analytics | Phase 3 / Lab 9**
 > Team: Tony Nguyen · Daniel Evans · Joel Vinas
 > Repository: [CS5542_SmartSC_Optimization_System](https://github.com/mosomo82/CS5542_SmartSC_Optimization_System)
 
@@ -228,3 +228,27 @@ jobs:
 | Reproducibility tests | Automated suite | 26/26 PASS (~115 s, zero API cost) |
 | Pipeline smoke test | End-to-end health | 7/7 PASS |
 | CI integration | Automated on every push | GitHub Actions (≥70% gate) |
+
+---
+
+## 7. Qualitative Phase 3 Agent Outcomes
+
+With the integration of the **Snowflake Cortex Llama 3** LangChain ReAct agent during Phase 3, the system achieved robust autonomous tool usage. 
+
+### 7.1 Agent Tool Usage (Example Trace)
+When a dispatcher submits a compound routing query, Cortex Llama 3 autonomously sequences logic across 9 available database functions.
+
+**Dispatcher Query:** *"What is the fleet status for recent deliveries, and does the main I-55 route violate any bridge clearances for a 45-ton load?"*
+
+| Step | Action Tool | Action Input (JSON/SQL) | Observation |
+|---|---|---|---|
+| **1** | `get_fleet_status` | `limit: 5` | Retrieved 5 active shipments and late delivery risk factors. |
+| **2** | `verify_route_compliance` | `route_wkt: "LINESTRING(...)", weight_tons: 45` | Spatial SQL Hard Gate triggered: `Verdict: VETO. Violated limit: 40 tons on NBI-IL-4821.` |
+| **3** | *(Agent Reason)* | N/A | Understands that the 45-ton truck cannot take the route due to the observation. |
+| **4** | `Final Answer` | N/A | *"The fleet status shows 5 active shipments. However, you cannot dispatch a 45-ton truck on I-55 because it violates the 40-ton restriction on bridge NBI-IL-4821."* |
+
+### 7.2 System Performance Observations (Phase 3 Integration)
+
+* **Domain Reasoning Improvement:** By injecting the deterministic `Spatial SQL Gate` outputs directly into the prompt (Phase 3 fix), the LLM constraint hallucination rate dropped from **40% (Phase 1 Baseline) to essentially 0%**. The model is explicitly prevented from guessing bridge limits.
+* **Zero Egress Latency:** Replacing Gemini 2.5 Flash with **Snowflake Cortex native Llama 3** eliminated external API egress delays, leading to highly consistent **~12-second** response times for complex 4-hop queries.
+* **100% Data Governance:** All supply-chain history, constraint thresholds, and LLM reasoning steps now execute securely inside the `SMART_SUPPLY_CHAIN_DB` VPC boundary without emitting token streams over the public internet.

@@ -6,9 +6,10 @@ Orchestrates the CPP decision pipeline for the HyperLogistics SmartSC system.
 Pipeline (in order):
   Gate 1 — compliance_agent: Spatial SQL hard veto (ST_INTERSECTS on bridges)
             → HARD VETO if any bridge on route is over-weight or under-clearance.
-            → NO LLM is called if vetoed.
-  Gate 2 — Snowflake Cortex LLM: Full CPP routing recommendation.
-            → Only reached if Gate 1 PASS.
+  Gate 2 — efficiency_agent (SRSNet): Risk forecasting
+            → HARD VETO if risk score >= 0.90 (extreme danger).
+  Gate 3 — Snowflake Cortex LLM: Full CPP routing recommendation.
+            → Only reached if Gates 1 and 2 PASS.
 
 Usage:
     from src.agents.cpp_agent import run_cpp_pipeline, CPPDecision
@@ -29,6 +30,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from src.agents.compliance_agent import ComplianceResult, check_route_compliance
+from src.agents.efficiency_agent import EfficiencyResult, evaluate_route_risk
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +51,7 @@ class CPPDecision:
     """
     verdict: str
     compliance: ComplianceResult
+    efficiency: EfficiencyResult = None
     response_text: str = ""
     llm_called: bool = False
 
@@ -68,10 +71,13 @@ intersected).
 Minimum weight margin across route bridges: {min_weight_margin}
 Minimum clearance margin across route bridges: {min_clearance_margin} m
 
+SRSNet Route Risk Score: {risk_score} (Category: {risk_category})
+Risk Factors identified: {risk_factors}
+
 User query: {user_query}
 
 Provide a concise, professional routing recommendation based on the compliance
-data above. Cite the margin figures in your response.
+and risk data above. Cite the margin figures and risk score in your response.
 """
 
 
@@ -132,17 +138,36 @@ def run_cpp_pipeline(
         return CPPDecision(
             verdict="HARD_VETO",
             compliance=compliance,
+            efficiency=None,
             response_text=compliance.veto_reason,
             llm_called=False,
         )
 
-    # ── GATE 2: Cortex LLM call (only on PASS) ───────────────────────────────
+    # ── GATE 2: SRSNet Efficiency risk scoring ─────────────────────────────────
+    efficiency = evaluate_route_risk(
+        session=session,
+        route_wkt=route_wkt,
+        user_query=user_query
+    )
+    
+    if efficiency.risk_score >= 0.90:
+        logger.warning(
+            "[CPP Agent] Gate 2 HIGH RISK VETO (score=%.2f) — pipeline halted.", 
+            efficiency.risk_score
+        )
+        return CPPDecision(
+            verdict="HARD_VETO",
+            compliance=compliance,
+            efficiency=efficiency,
+            response_text=f"HARD VETO: SRSNet detected extreme route risk (Score: {efficiency.risk_score:.2f}). Reason: {efficiency.risk_factors[0]}",
+            llm_called=False,
+        )
+
+    # ── GATE 3: Cortex LLM call (only on PASS) ───────────────────────────────
     logger.info(
-        "[CPP Agent] Gate 1 PASS (%d bridges, min_weight_margin=%.3f, "
-        "min_clearance_margin=%s m). Calling Cortex LLM.",
+        "[CPP Agent] Gates 1 & 2 PASS (%d bridges, risk=%.2f). Calling Cortex LLM.",
         compliance.intersecting_count,
-        compliance.min_weight_margin if compliance.min_weight_margin is not None else 0.0,
-        f"{compliance.min_clearance_margin:.2f}" if compliance.min_clearance_margin is not None else "N/A",
+        efficiency.risk_score
     )
 
     prompt = _SYSTEM_PROMPT_TEMPLATE.format(
@@ -157,6 +182,9 @@ def run_cpp_pipeline(
             if compliance.min_clearance_margin is not None
             else "N/A (no bridges on route)"
         ),
+        risk_score=f"{efficiency.risk_score:.2f}",
+        risk_category=efficiency.recommendation,
+        risk_factors=efficiency.risk_factors[0] if efficiency.risk_factors else "None",
         user_query=user_query or "Confirm route compliance status.",
     )
 
@@ -167,6 +195,7 @@ def run_cpp_pipeline(
     return CPPDecision(
         verdict="PASS",
         compliance=compliance,
+        efficiency=efficiency,
         response_text=llm_answer,
         llm_called=True,
     )

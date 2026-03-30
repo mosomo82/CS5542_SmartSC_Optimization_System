@@ -12,6 +12,7 @@ from datetime import datetime
 # Add project root to path so we can import src.utils
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from src.utils.snowflake_conn import get_session
+from src.agents.dashboard_agent import run_cortex_agent
 
 # Page config
 st.set_page_config(
@@ -193,45 +194,37 @@ if st.sidebar.button("Submit Query", type="primary", key="submit_query") and que
     start_time = datetime.now()
 
     with st.sidebar:
-        with st.spinner("Retrieving evidence..."):
-            evidence, grounding_sources = get_evidence(query)
-
-        # Build evidence context string for the LLM
-        evidence_context = ""
-        if "accident_risk" in evidence:
-            evidence_context += f"Top Accident Risk Areas:\n{evidence['accident_risk'].to_string(index=False)}\n\n"
-        if "bridge_data" in evidence:
-            evidence_context += f"Bridge Compliance Data:\n{evidence['bridge_data'].to_string(index=False)}\n\n"
-        if "logistics_data" in evidence:
-            evidence_context += f"Logistics Operations:\n{evidence['logistics_data'][['RECORD_TYPE','TEXT_CONTENT']].to_string(index=False)}\n\n"
-
-        with st.spinner("Generating AI response..."):
-            response = get_cortex_response(query, evidence_context)
+        with st.spinner("Agent Reasoning in Progress (Snowflake Cortex Llama 3)..."):
+            agent_result = run_cortex_agent(session, query)
+            response = agent_result["output"]
+            trace = agent_result["trace"]
 
         execution_time_ms = int((datetime.now() - start_time).total_seconds() * 1000)
-        is_grounded = len(grounding_sources) > 0
+        is_grounded = len(trace) > 0
+        grounding_sources = ["Tool: " + step["tool"] for step in trace]
 
         # Log the query
         log_query(query, response, grounding_sources, execution_time_ms, is_grounded)
 
         # Display response
-        st.success("AI Response:")
+        st.success("🤖 Snowflake Cortex Response:")
         st.write(response)
 
         # Display grounding info
-        if grounding_sources:
-            st.info(f"Grounded on: {', '.join(grounding_sources)}")
+        if is_grounded:
+            st.info(f"Tools Used: {', '.join(set([step['tool'] for step in trace]))}")
             st.caption(f"Response time: {execution_time_ms}ms")
 
         # Collapsible Reasoning Path expander
-        with st.expander("🧠 Reasoning Path (ReMindRAG + CPP)", expanded=False):
-            st.markdown("**CPP Hard Gate:** Spatial SQL validation — PASS ✅")
-            st.markdown("**ReMindRAG Retrieval Sources:**")
-            if grounding_sources:
-                for src in grounding_sources:
-                    st.markdown(f"- `{src}`")
+        with st.expander("🧠 Agent Reasoning Trace (ReAct)", expanded=False):
+            st.markdown("**Model:** Snowflake Cortex (Llama 3 70B)")
+            if not trace:
+                st.markdown("*No external tools were invoked. Answer generated from internal knowledge.*")
             else:
-                st.markdown("- *(no Silver table sources retrieved)*")
+                for idx, step in enumerate(trace):
+                    st.markdown(f"**Step {idx+1}:** `Action: {step['tool']}`")
+                    st.markdown(f"> **Input:** _{step['tool_input']}_")
+                    st.markdown(f"> **Observation:** {step['observation']}")
             st.caption(f"Total execution time: {execution_time_ms} ms")
 
 # --- Tab Layout ---

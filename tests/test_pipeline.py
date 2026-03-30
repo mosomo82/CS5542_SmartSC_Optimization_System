@@ -144,10 +144,11 @@ class TestCPPOrchestrator:
 
         mock_sql_1 = MagicMock(); mock_sql_1.collect.return_value = []          # no violations
         mock_sql_2 = MagicMock(); mock_sql_2.collect.return_value = [agg_row]   # aggregate
-        mock_sql_3 = MagicMock(); mock_sql_3.collect.return_value = [["APPROVED: route is safe."]]  # Cortex
+        mock_sql_3 = MagicMock(); mock_sql_3.collect.return_value = [["0.15, Clear weather"]]       # SRSNet Risk Score
+        mock_sql_4 = MagicMock(); mock_sql_4.collect.return_value = [["APPROVED: route is safe."]]  # Cortex LLM
 
         session = MagicMock()
-        session.sql.side_effect = [mock_sql_1, mock_sql_2, mock_sql_3]
+        session.sql.side_effect = [mock_sql_1, mock_sql_2, mock_sql_3, mock_sql_4]
 
         decision = run_cpp_pipeline(
             session=session,
@@ -160,5 +161,5 @@ class TestCPPOrchestrator:
         assert decision.verdict == "PASS"
         assert decision.llm_called is True
         assert decision.response_text  # LLM answer is populated
-        # All three sql() calls must have fired
-        assert session.sql.call_count == 3
+        # All four sql() calls must have fired (2 for compliance, 1 for SRSNet, 1 for LLM)
+        assert session.sql.call_count == 4
