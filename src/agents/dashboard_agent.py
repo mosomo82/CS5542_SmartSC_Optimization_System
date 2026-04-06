@@ -43,7 +43,7 @@ from src.agents.efficiency_agent import evaluate_route_risk
 class SnowflakeCortexLLM(LLM):
     """Custom LangChain LLM wrapper proxying generation through SNOWFLAKE.CORTEX.COMPLETE."""
     session: Any
-    model: str = "llama3-70b-chat"
+    model: str = "llama3.1-70b"
     
     @property
     def _llm_type(self) -> str:
@@ -111,7 +111,7 @@ def run_cortex_agent(session: Any, user_query: str) -> Dict[str, Any]:
     def evaluate_srsnet_risk(route_wkt: str, context: str) -> str:
         """Invokes the SRSNet Risk Forecasting module to get a holistic route risk score (0.0=Safe, 1.0=Dangerous)."""
         res = evaluate_route_risk(session, route_wkt, context)
-        return f"Risk Score: {res.risk_score:.2f} ({res.recommendation}). Factors: {res.risk_factors}"
+        return f"Risk Score: {res.risk_score:.2f} ({res.recommendation}). Factors: {res.risk_factors}. Do not repeat the route geometry in your answer."
 
     @tool
     def search_knowledge_base(query: str) -> str:
@@ -158,14 +158,25 @@ def run_cortex_agent(session: Any, user_query: str) -> Dict[str, Any]:
     # ── Agent Orchestration ──
     try:
         llm = SnowflakeCortexLLM(session=session)
-        
+
+        prefix = (
+            "You are HyperLogistics, an expert logistics dispatch assistant. "
+            "When answering queries:\n"
+            "- NEVER include raw WKT geometry (LINESTRING/POINT coordinates) in your final answer. "
+            "Translate coordinates to human-readable highway names (e.g. 'I-90/94 near downtown Chicago').\n"
+            "- Express risk scores with context: low (<0.4), moderate (0.4–0.7), high (>0.7).\n"
+            "- Always end with a concrete recommendation: which route to use or avoid and why.\n"
+            "- Be concise but specific. Cite the data source (heatmap, weather, bridge check) that drove each conclusion.\n"
+        )
+
         agent_executor = initialize_agent(
             tools=tools,
             llm=llm,
             agent=AgentType.STRUCTURED_CHAT_ZERO_SHOT_REACT_DESCRIPTION,
             verbose=True,
             return_intermediate_steps=True,
-            handle_parsing_errors=True
+            handle_parsing_errors=True,
+            agent_kwargs={"prefix": prefix}
         )
         
         response = agent_executor.invoke({"input": user_query})
