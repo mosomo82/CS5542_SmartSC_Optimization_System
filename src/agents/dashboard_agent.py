@@ -8,14 +8,37 @@ capable of autonomous multi-step reasoning using 9 logistics tools.
 import logging
 from typing import Dict, Any, List, Optional
 
+logger = logging.getLogger(__name__)
+
 from langchain_core.language_models.llms import LLM
-from langchain.agents import initialize_agent, AgentType
 from langchain_core.tools import tool
+
+# Robust LangChain imports for compatibility across 0.1.x, 0.2.x, and 0.3.x
+try:
+    # Try the most common 0.1/0.2 entry points
+    from langchain.agents import AgentExecutor, initialize_agent, AgentType
+except ImportError:
+    try:
+        # Try explicit module paths (often more reliable in 0.2+)
+        from langchain.agents.agent import AgentExecutor
+        from langchain.agents.initialize import initialize_agent
+        from langchain.agents.agent_types import AgentType
+    except ImportError:
+        try:
+            # Try community fallbacks if the base package is stripped
+            from langchain_community.agent_toolkits import AgentExecutor # less likely
+            from langchain.agents import AgentExecutor
+        except ImportError:
+            # Last resort: Define dummies to prevent startup crash, 
+            # though execution will fail later.
+            logger.error("Failed to import essential LangChain Agent components. Please run 'pip install -r requirements.txt'")
+            AgentExecutor = Any 
+            initialize_agent = Any
+            AgentType = type('AgentType', (), {'STRUCTURED_CHAT_ZERO_SHOT_REACT_DESCRIPTION': 'structured-chat-zero-shot-react-description'})
+
 
 from src.agents.compliance_agent import check_route_compliance
 from src.agents.efficiency_agent import evaluate_route_risk
-
-logger = logging.getLogger(__name__)
 
 class SnowflakeCortexLLM(LLM):
     """Custom LangChain LLM wrapper proxying generation through SNOWFLAKE.CORTEX.COMPLETE."""
