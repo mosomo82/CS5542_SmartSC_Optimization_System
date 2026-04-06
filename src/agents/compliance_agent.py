@@ -78,7 +78,7 @@ class ComplianceResult:
 
 _SQL_SPATIAL_GATE = """
 SELECT
-    BRIDGE_ID,
+    STRUCTURE_NUMBER_008                                    AS bridge_id,
     VERT_CLR_OVER_MT_053                                    AS clearance_mt,
     OPERATING_RATING_064                                    AS weight_limit_tons,
     OPERATING_RATING_064 / NULLIF({vehicle_weight}, 0)      AS weight_margin,
